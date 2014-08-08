@@ -1,0 +1,9 @@
+<div ui-view>
+    <div ng-if="account.username" ng-include="'partials/edit-dataset.html'"></div>
+    
+    <div ng-if="!account.username" class="row">
+        <div class="col-md-12">
+            You need to sign in before you can register a new dataset.
+        </div>
+    </div>
+</div>

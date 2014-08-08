@@ -1,4 +1,7 @@
-SparqlServiceCatalogue
-======================
+RdfServiceCatalog
+=================
 
-A simple service catalog mainly intended for indexing available graphs in an SPARQL endpoint.
+Initial code based on Datacat
+
+
+

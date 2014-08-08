@@ -1,0 +1,9 @@
+Package: datacat-tomcat7
+Version: [[version]]
+Section: web
+Priority: optional
+Architecture: all
+Depends: datacat-tomcat-common, xsltproc, tomcat7
+Maintainer: Claus Stadler <cstadler@informatik.uni-leipzig.de>
+Description: datacat Tomcat7
+Distribution: development

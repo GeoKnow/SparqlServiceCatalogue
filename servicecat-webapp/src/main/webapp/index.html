@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html ng-app="RdfDatasetCatalog">
+
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <title>RDF Dataset Catalog</title>
+	
+    <!-- Place favicon.ico and apple-touch-icon.png in the root directory -->
+    <!-- build:css(.tmp) styles/main.css -->
+
+    <!-- bower:css -->
+    <link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.css" />
+    <link rel="stylesheet" href="bower_components/jassa-ui-angular/jassa-ui-angular.css" />
+    <link rel="stylesheet" href="bower_components/jassa-ui-angular-openlayers/jassa-ui-angular-openlayers.css" />
+    <!-- endbower -->
+
+	<link rel="stylesheet" href="bower_components/ng-grid-bower/ng-grid.css" />
+
+    <link rel="stylesheet" href="styles/rdf-dataset-catalog-style.css" />
+
+
+<!--     <link rel="stylesheet" href="bower_components/jquery-ui/themes/base/jquery.ui.resizable.css" /> -->
+    <link rel="stylesheet" href="bower_components/jquery-ui/themes/base/jquery.ui.all.css" />
+
+    <style>
+    .login-labels: {
+        width: 300px;
+    }
+    
+    .login-fields: {
+        width: 200px;
+    }
+    </style>
+
+    <!-- endbuild -->
+
+	
+    <!-- build:js scripts/scripts.js -->
+
+    <script src="bower_components/jscache/cache.js"></script>
+
+    <!-- bower:js -->
+    <script src="bower_components/jquery/jquery.js"></script>
+    <script src="bower_components/underscore/underscore.js"></script>
+    <script src="bower_components/jassa/jassa.js"></script>
+    <script src="bower_components/angular/angular.js"></script>
+    <script src="bower_components/bootstrap/dist/js/bootstrap.js"></script>
+    <script src="bower_components/ng-grid-bower/ng-grid.js"></script>
+    <script src="bower_components/angular-sanitize/angular-sanitize.js"></script>
+    <script src="bower_components/jquery-ui/ui/jquery-ui.js"></script>
+    <script src="bower_components/jassa-ui-angular/jassa-ui-angular-tpls.js"></script>
+    <script src="bower_components/jassa-ui-angular-openlayers/jassa-ui-angular-openlayers-tpls.js"></script>
+    <script src="bower_components/angular-ui-router/release/angular-ui-router.js"></script>
+    <!-- endbower -->
+
+
+
+	<script src="scripts/lib/ng-grid-flexible-height/ng-grid-flexible-height.js"></script>
+
+    <script src="scripts/lib/angular-ui/0.10.0/ui-bootstrap-tpls-0.10.0.js"></script>
+    <script src="bower_components/underscore.string/lib/underscore.string.js"></script>
+    <script src="bower_components/openlayers/lib/OpenLayers.js"></script>
+
+    <!-- endbuild -->
+
+<!--    <script src="js/jassa-ui-angular-geo-openlayers-tpls.js"></script> -->
+	
+	<script type="text/javascript">
+    _.mixin(_.str.exports());
+
+	var rdf = Jassa.rdf;
+	var vocab = Jassa.vocab;
+	var sparql = Jassa.sparql;
+    var service = Jassa.service;
+	var sponate = Jassa.sponate;
+    var facete = Jassa.facete;
+	var geo = Jassa.geo;
+	var util = Jassa.util;
+	
+	var client = Jassa.client;
+
+	
+    var storeApiUrl = 'api/store';
+    //var storeApiUrl = '/store';
+    
+    var jassa = Jassa;                
+    var sparqlService = new jassa.service.SparqlServiceHttp('api/sparql', []);
+
+	
+    
+    var vs = rdf.NodeFactory.createVar('s');
+    var ds = rdf.NodeFactory.createUri('http://www.w3.org/ns/dcat#Dataset');
+    var datasetConcept = new facete.Concept(new sparql.ElementTriplesBlock([new rdf.Triple(vs, vocab.rdf.type, ds)]), vs);
+
+    
+	var applyScope = function($scope) {
+	    if(!$scope.$$phase) {
+	        $scope.$apply();
+	    }
+	};
+
+	
+	var createEmptyDatasetSpec = function() {
+        var result = {
+            id: null,
+            name: '',
+            version: '',
+            comment: '',
+            recordLabel: '',
+            recordComment: '',            
+            sparqlEndpoints: [],
+            downloadLocations: [],
+            relations: []
+        };
+	    
+        return result;
+	};
+	
+	
+	/**
+     * The idea is for the type ahead to set constraints such that other fields will offer dependent fields.
+     * Now, input fields could need to consult the type ahead either on use (e.g. a popup drop down)
+	 * or immediately on change.
+	 * Another issues is, that the type ahead needs to register a 'slot' for the constraint it will place into the constraint manager.
+	 * 
+     *
+     */
+    // The constraint manager may have groups - within groups there is disjunction, outside conjunction.
+    // Groups may contain sub groups 
+    // Addressing groups:
+    // [0]http://rdf../type [1]http://
+    // Or
+    // <http://foo>[0] <http://bar>-[1]
+    // - = inverse [x] = group x
+    // ns.FacetValueService(sparqlService, facetTreeConfig)
+    // 
+	var FacetTypeAhead = Class.create({
+	   initialize: function(facetValueService, path) {
+	       this.facetValueService = facetValueService;
+	       
+	       this.path = path;
+	       
+           this.offset = 0;
+           this.limit = 10;
+	       
+	       this.lastConstraint = null;
+	   },
+	   
+	   updateConstraint: function(text) {
+	       console.log('Set constraint:', this);
+	       var constraintManager = this.facetValueService.facetTreeConfig.getFacetConfig().getConstraintManager();
+	       
+	       if(this.lastConstraint != null) {
+	           constraintManager.removeConstraint(this.lastConstraint);
+	       }
+	       
+	       //debugger;
+	       // Add a constraint to the config where the given path must 
+	       var val = rdf.NodeFactory.createPlainLiteral(text);
+	       
+	       console.log('VAAAAAL', val);
+	       this.lastConstraint = new facete.ConstraintSpecPathValue('regex', this.path, val);
+	       
+	       
+	       
+	       constraintManager.addConstraint(this.lastConstraint);
+	   },
+	   
+	   fetchData: function(filterString) {
+	       
+	       var fetcher = this.facetValueService.createFacetValueFetcher(this.path, filterString);
+	       
+	       var p1 = fetcher.fetchData(this.offset, this.limit);
+	       var p2 = fetcher.fetchCount();
+	       
+	       var result = jQuery.when.apply(null, [p1, p2]).pipe(function(data, count) {
+	           var r = {
+	               offset: this.offset,
+	               count: count,
+	               data: data
+	           };
+	           
+	           return r;
+	       });
+	       
+	       return result;
+	   }
+	});
+
+    
+    var AngularValueSupplier = Class.create({
+        initialize: function(scope, expr) {
+            this.scope = scope;
+            this.expr = expr;
+        },
+        
+        getValue: function() {
+            var result = this.expr(this.scope);
+            return result;
+        }
+    });
+
+    
+    var FacetTypeAheadUtils = {
+        /**
+         *
+         *
+         *
+         */
+        parseMap: function($parse, map) {
+
+            var result = _(map).map(function(pathSpec, modelExprStr) {
+                var path = FacetTypeAheadUtils.parsePathSpec(pathSpec);
+                
+                var modelExpr = $parse(modelExprStr);
+                
+                var r = {
+                    path: path,
+                    modelExpr: modelExpr,
+                    modelExprStr: modelExprStr 
+                };
+                return r;
+            });
+            
+            return result;
+        },
+        
+        /**
+         * A path spec corresponds to a set of representations of paths.
+         *
+         * TODO This should be part of PathUtils or FaceteUtils.
+         *
+         */         
+        parsePathSpec: function(pathSpec) {
+            var result = (pathSpec instanceof facete.Path) ? pathSpec : facete.Path.parse(pathSpec); 
+
+            return result;
+        }        
+
+    };
+    
+    
+    /*
+    var BoundFacetTypeAheadServiceAngular = Class.create({
+        initialize: function() {
+            
+        }
+    });
+    */
+
+    /*
+    var FacetTypeAheadFactoryAngular = Class.create({
+        initialize: function() {
+            
+        },
+        
+        createTypeAhead: function(scope, q, modelExpr, pathExpr) {
+            
+        }
+    });
+
+    var FacetType
+    */
+    
+    var FacetTypeAheadConfig = Class.create({
+        initialize: function() {
+            this.facetTreeConfig = facetTreeConfig || new facete.FacetTreeConfig();
+
+            // TODO We could add limit/offset configs to the modelPathMappings 
+            this.defaultOffset = 0;
+            this.defaultLimit = 10;            
+
+            //this.facetConfig = facetConfig;
+            this.modelPathMappings = modelPathMappings || [];
+        },        
+        
+        getFacetTreeConfig: function() {
+            return this.facetTreeConfig;
+        },
+        
+        getModelPathMappings: function() {
+            return this.modelPathMappings;
+        },
+        
+        getDefaultLimit: function() {
+            return this.defaultLimit;
+        },
+        
+        getDefaultOffset: function() {
+            return this.defaultOffset;
+        }
+    });
+
+    
+		
+    var labelMap = Jassa.sponate.SponateUtils.createDefaultLabelMap();
+
+    var fetchDatasetDesc = function(uri) {
+        var spec = {
+            url: storeApiUrl + '/get',
+            type: 'GET',
+            data: {
+                id: uri
+            },
+            traditional: true,
+            dataType: 'json'
+        };
+
+        var promise = jQuery.ajax(spec)
+        .fail(function() {
+            alert('Failed to retrieve dataset info');
+        });
+
+        return promise;
+    };
+
+    
+    angular.module('RdfDatasetCatalog', ['ui.router', 'ui.bootstrap', 'ui.jassa', 'ngGrid', 'ui.jassa.openlayers', 'ngSanitize'])
+
+    .config([function() {
+        // Setup drop down menu
+        jQuery('.dropdown-toggle').dropdown();
+       
+        // Fix input element click problem
+        jQuery('.dropdown input, .dropdown label').click(function(e) {
+          e.stopPropagation();
+        });        
+    }])
+    
+    .config(['$stateProvider', '$urlRouterProvider', function($stateProvider, $urlRouterProvider) {
+        $urlRouterProvider.otherwise("/home");
+
+        
+        //
+        // Now set up the states
+        $stateProvider
+
+        .state('home', {
+            url: "/home",
+            templateUrl: "partials/home.html",
+            controller: function($scope, $state) {
+
+                $scope.dataset = {
+                        desc: createEmptyDatasetSpec()
+                    };
+                
+                
+                $scope.previewDataset = function(uri) {
+                    fetchDatasetDesc(uri).done(function(desc) {
+                        $scope.dataset.desc = desc;
+                        $state.go('home.list');
+                    }).then(function() {
+                        applyScope($scope);
+                    });
+                }
+
+                //sparqlService = new jassa.service.SparqlServiceCache(sparqlServiceCore);
+
+        var prefixes = {
+            'o': 'http://dcat.cc/ontology/',
+            'r': 'http://dcat.cc/resource/',
+            'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+            'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
+            'owl': 'http://www.w3.org/2002/07/owl#',
+            'dcat': 'http://www.w3.org/ns/dcat#'
+        };
+
+        
+        
+        var store = new sponate.StoreFacade(sparqlService, prefixes);
+        
+        store.addMap(labelMap, 'labels');                
+                
+                $scope.search = {text: ''};
+                
+                $scope.$watch('search.text', function(val) {
+                    $scope.refreshResults(val); 
+                });
+          
+                $scope.dataset = {
+                    desc: createEmptyDatasetSpec()
+                };
+
+                $scope.editMode = false;
+                
+                
+                $scope.requestId = 1;
+                
+                $scope.refreshResults = function(re) {
+                    var requestId = ++$scope.requestId;
+
+                    if(!re) {
+                        re = '';
+                    }
+                    
+                    /*
+                    if(!re || re === '') {
+                        $scope.items = [];
+                        return;
+                    }
+                    */
+                    
+                    var maxResults = 10;
+                    
+                    //var re = 'DB';
+                    //var concept =
+                    var criteria = {$or: [{id: {$regex: re}}, {hiddenLabels: {$elemMatch: {id: {$regex: re}}}}]};
+                    
+                    //var datasetConcept = sparql.ConceptUtils.createFromString('?s a <http://www.w3.org/ns/dcat#Dataset>', 's'); //new facete.Concept(sparql.ElementUtils.parse('?s a <http://www.w3.org/ns/dcat#Dataset>'), 's');
+                    
+                    
+                    
+                    
+                    
+                    
+                    var baseFlow =  store.labels.find(criteria).concept(datasetConcept);
+                    var countPromise = baseFlow.count();        
+                    
+                    // An empty search string yields no results, however the count is fetched
+                    var dataPromise;
+                    if(re === '') {
+                        dataPromise = jQuery.Deferred();
+                        dataPromise.resolve([]);
+                    } else {
+                        dataPromise = baseFlow.limit(maxResults).asList(true);
+                    }
+                    
+                    $.when.apply(window, [countPromise, dataPromise]).done(function(count, data) {
+                        if(requestId != $scope.requestId) {
+                            return;
+                        }
+                        
+                        $scope.items = data;
+                        $scope.totalItemCount = count;
+                        console.log(data);
+                        applyScope($scope);                        
+                    });
+                    //promise.done(function(data) {
+                    //});
+                    
+                }
+                
+                $scope.refreshResults();
+            }
+        })
+        .state('home.list', {
+            url: "/list",
+            templateUrl: "partials/home.list.html",
+            controller: function($scope) {
+                //$scope.items = ["A", "List", "Of", "Items"];
+            }
+        })
+		.state('register-dataset', {
+		    url: "/register-dataset",
+		    templateUrl: "partials/register-dataset.html",
+		    controller: function($scope) {
+                $scope.dataset = {
+                    desc: createEmptyDatasetSpec()
+                };
+		        $scope.editMode = true;
+		        
+	             $scope.previewDataset = function(uri) {
+	                   fetchDatasetDesc(uri).done(function(desc) {
+	                       $scope.dataset.desc = desc;
+	                       applyScope($scope);
+	                   });
+	               };
+
+		    }
+		})
+		.state('faq', {
+		    url: "/faq",
+		    templateUrl: "partials/faq.html"
+		 })
+        .state('about', {
+            url: "/about",
+            templateUrl: "partials/about.html"
+        })
+    }])        
+    
+    .filter('reverse', function() {
+		return function(items) {
+			return items.slice().reverse();
+		};
+	})
+    
+	.directive('customAutofocus', function() {
+        return {
+            restrict: 'A',
+
+            link: function(scope, elem, attrs) {
+                var expr = function() {
+                    return scope.$eval(attrs.customAutofocus);
+                };
+ 
+                scope.$watch(expr, function(newValue) {
+                    console.log('dammit');
+                    if(newValue == true){
+                        elem[0].focus(); //use focus function instead of autofocus attribute to avoid cross browser problem. And autofocus should only be used to mark an element to be focused when page loads.
+                    }
+  	            });
+	        }
+	    };
+	})
+    
+	// http://stackoverflow.com/questions/21687925/angular-directive-how-to-add-an-attribute-to-the-element
+
+	
+    .controller('AppCtrl', ['$scope', '$q', '$parse', function($scope, $q, $parse) {
+
+        $scope.origBounds = null;
+        
+        $scope.boundsX = {};
+        
+        $scope.onResizeInit = function(bounds) {
+            $scope.origBounds = bounds;
+            console.log('origBounds', $scope.origBounds);
+        };
+        
+        $scope.resetSize = function() {
+            
+            console.log('Status', $scope.boundsX, $scope.origBounds);
+            //$scope.boundsX=$scope.origBounds;
+            angular.copy($scope.origBounds, $scope.boundsX);
+        };
+        
+
+        $scope.onResize = function(evt, ui, bounds) {
+            console.log('ORIG BOUNDS', $scope.origBounds);
+        };
+
+        
+        
+        
+        $scope.resizableConfig = {handles: 'ne' };
+        
+        
+        var ftc = new facete.FacetTreeConfig();
+        
+        //$scope.asyncSelected = '';
+        $scope.dsref = {
+            groupId: '',
+            artifactId: ''
+        };
+        
+        
+        //$scope.dataset.desc = createEmptyDatasetSpec();
+        /*}
+        desc = {
+                recordId: '',
+                name: '',
+                version: '',
+                comment: '',
+                recordLabel: '',
+                recordComment: '',            
+                sparqlEndpoints: [],
+                downloadLocations: [],
+                relations: []
+    /*
+                containment: {
+                    isExact: true,
+                    items: []
+                }
+        
+            };
+         */
+        $scope.deleteDataset = function(id) {
+            var spec = {
+                    url: storeApiUrl + '/delete',
+                    type: 'POST',
+                    data: {
+                        id: id
+                    },
+                    traditional: true,
+                    dataType: 'json'
+                };
+        
+                jQuery.ajax(spec)
+                .done(function(data) {
+                    $scope.dataset = {
+                        desc: createEmptyDatasetSpec()
+                    };
+                    alert('Deleted');
+                })
+                .fail(function() {
+                    alert('Failed to delete dataset');
+                })
+                .then(function() {
+                    applyScope($scope);
+                });            
+        };
+        
+        
+        $scope.loadingSuggestions = false;
+
+        
+        var typeAheadFtc = new facete.FacetTreeConfig();
+        typeAheadFtc.getFacetConfig().setBaseConcept(datasetConcept);
+        
+        // FacetTypeAheadConfig
+        $scope.ftac = {
+            sparqlService: sparqlService,
+            facetTreeConfig: typeAheadFtc
+            //pathModelMappings: [] // will be automatically injected
+        };
+
+        
+        
+        $scope.account = {};
+        
+        $scope.datasetForm = {};
+
+        
+        $scope.notifications = [];
+        
+        $scope.swapArrayItems = function(arr, i, j) {
+            var tmp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = tmp;
+        };
+        
+        $scope.checkSession = function() {
+            var spec = {
+	            url: storeApiUrl + '/checkSession',
+	            type: 'POST',
+	            data: {},
+	            traditional: true,
+	            dataType: 'json'
+            };
+
+            jQuery.ajax(spec)
+            .done(function(data) {
+                $scope.account = data;
+            })
+            .fail(function() {
+                alert('Failed to get session state');
+            })
+            .then(function() {
+                applyScope($scope);
+            });            
+        };
+
+        $scope.checkSession();
+        
+        $scope.logOut = function() {
+            var spec = {
+	            url: storeApiUrl + '/logOut',
+	            type: 'POST',
+            };
+
+            jQuery.ajax(spec)
+            .done(function() {
+            })
+            .fail(function() {
+                alert('Failed to log out');
+            })
+            .then(function() {
+                $scope.account = {}; //.username = null;
+                applyScope($scope);
+            });
+        };
+        
+        $scope.logIn = function(credentials) {
+            var spec = {
+	            url: storeApiUrl + '/logIn',
+	            type: 'POST',
+	            data: {
+	                username: credentials.username,
+	                password: credentials.password
+	            },
+	            traditional: true,
+	            dataType: 'json'
+            };
+
+            jQuery.ajax(spec)
+            .done(function(data) {
+                //$scope.account.username = data.username;
+                $scope.account = data;
+            })
+            .fail(function() {
+                alert('Fail');
+            })
+            .then(function() {
+                applyScope($scope);
+            });
+                        
+        };
+        
+        $scope.registerAndLogIn = function(credentials) {
+            var spec = {
+		        url: storeApiUrl + '/registerUser',
+		        type: 'POST',
+		        data: {
+		            username: credentials.username,
+		            password: credentials.password,
+		            email: credentials.email
+		        },
+		        traditional: true,
+		        dataType: 'json'
+		    };
+		    
+		    jQuery.ajax(spec)
+		    .done(function(data) {
+                //$scope.account.name = data.name;
+                //applyScope($scope);
+		    })
+		    .fail(function() {
+		        alert('Fail');
+		    })
+		    .then(function() {
+		        //applyScope($scope);
+		        
+		        $scope.checkSession();
+		    });
+		    
+        };
+        
+    }])
+    
+    .controller('EditDatasetCtrl', ['$scope', function($scope) {
+        $scope.editMode = false;
+        
+        
+        $scope.store = function(data) {
+
+            
+            //data.label = 'test';
+            //data.comment = 'foobar';
+            
+            //data.downloadLocations = [ 'http://foo.org/bar', 'http://foo.org/baz' 
+				//{uri: 'http://foo.org/bar'},
+				//{uri: 'http://foo.org/baz'}
+			//];
+            
+            var dataStr = JSON.stringify(data);
+            //alert('Data: ' + dataStr);
+                        
+            
+            
+            var spec = {
+                url: storeApiUrl + '/put',
+                type: 'POST',
+                data: {
+                    data: dataStr,
+                },
+                traditional: true,
+                dataType: 'json'
+            };
+            
+            jQuery.ajax(spec)
+            .done(function(data) {
+                alert(dataStr);
+            })
+            .fail(function() {
+                alert('Fail');
+            })
+            .then(function() {
+                applyScope($scope);
+            });
+            
+            
+        }
+    }])
+    
+    .controller('ArmDeleteCtrl', ['$scope', function($scope) {
+        
+        $scope.isDeleteArmed = false;
+        
+        $scope.remove = function(arr, index) {
+            if($scope.isDeleteArmed) {
+                arr.splice(index, 1);
+            }
+            else {
+                $scope.isDeleteArmed = true;
+                setTimeout(function() {
+                    $scope.isDeleteArmed = false;
+                    
+                    applyScope($scope);
+               }, 1500);
+            }
+            
+        };
+    }])
+    
+    ;
+    
+    </script>
+
+</head>
+
+<body ng-controller="AppCtrl">
+
+
+<!--     <input type="text" ng-model="dsref.groupId" placeholder="GroupId" facet-typeahead="ftac" facet-typeahead-path="'http://dcat.cc/ontology/groupId'" typeahead-loading="loadingSuggestions" class="form-control" typeahead-min-length="0" typeahead-wait-ms="50"> -->
+<!--     <input type="text" ng-model="dsref.artifactId" placeholder="ArtifactId" facet-typeahead="ftac" facet-typeahead-path="'http://dcat.cc/ontology/artifactId'" typeahead-loading="loadingSuggestions" class="form-control" typeahead-min-length="0" typeahead-wait-ms="50"> -->
+<!--     <input type="text" ng-model="dsref.version" placeholder="Version" facet-typeahead="ftac" facet-typeahead-path="'http://dcat.cc/ontology/version'" typeahead-loading="loadingSuggestions" class="form-control" typeahead-min-length="0" typeahead-wait-ms="50"> -->
+    
+<!--     <div style="width: 200px; height: 200px; background-color: green"> -->
+<!--     on-resize="onResize(evt, ui, bounds)" -->
+<!--         <div resizable="resizableConfig" bounds="boundsX" on-resize-init="onResizeInit(bounds)" on-resize="onResize(evt, ui, bounds)" style="width: 50px; height: 50px; background-color: grey"> -->
+<!--             Test -->
+<!--         </div> -->
+<!--     </div> -->
+    
+<!--     <button ng-click="resetSize()">Remove resize</button> -->
+    
+<!--     <input type="text" ng-model="selected" typeahead="state for state in states | filter:$viewValue | limitTo:8" class="form-control"> -->
+
+	<nav class="navbar navbar-default" role="navigation">
+		<div class="container-fluid">
+			<!-- Brand and toggle get grouped for better mobile display -->
+   			<div class="navbar-header">
+				<button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+					<span class="sr-only">Toggle navigation</span>
+					<span class="icon-bar"></span>
+					<span class="icon-bar"></span>
+					<span class="icon-bar"></span>
+				</button>
+				
+				<a class="navbar-brand" style="padding: 3px 15px;" href="#"><img style="height: 42px;" src="images/logo-datacat-default.png" alt=""></img></a>
+				<a class="navbar-brand" href="#"><span style="color: #ab3479">RDF</span> <span style="color: #df752c">Data</span>set <span style="color: #7db442">Cat</span>alog</a>
+			</div>
+
+			<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+<!-- 				 <form class="navbar-form navbar-left" role="search"> -->
+<!-- 	        		<div class="form-group"> -->
+<!-- 	        			<div class="input-group"> -->
+<!-- 		          			<input type="text" ng-model="app.searchString" class="form-control" placeholder="Find Dataset..."> -->
+<!-- 		          			<span class="input-group-btn"> -->
+<!-- 		        				<button type="submit" class="btn btn-default" ng-click="doSearch(app.searchString)">Submit</button> -->
+<!-- 		          			</span> -->
+<!-- 		          		</div>	          			 -->
+<!-- 	        		</div> -->
+<!-- 				</form> -->
+
+                <ul class="nav nav-pills navbar-nav">
+                    <li class="active"><a ui-sref="home">Home</a></li>
+		            <li><a ui-sref="register-dataset">Register a Dataset</a></li>
+<!-- 		            <li><a ui-sref="state2">Browse</a></li> -->
+                    <li><a ui-sref="faq">FAQ</a></li>
+                    <li><a ui-sref="about">About</a></li>
+                    <li><a href="api/sparql" target="_blank">Sparql</a></li>
+                </ul>		
+
+				<ul class="nav nav-pills navbar-nav navbar-right">
+				    <li ng-show="account.username" class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Hello, {{account.username}}! <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="" ng-click="logOut()">Logout</a></li>
+                        </ul>
+				    </li>
+					<li ng-show="!account.username" class="dropdown">
+					    <a href="#" class="dropdown-toggle" data-toggle="dropdown">Login <b class="caret"></b></a>
+                        <div class="dropdown-menu" style="width: 300px; padding: 15px; padding-bottom: 0px;">
+							<form action="">
+							    <div class="form-group">
+							        <div class="input-group">
+<!-- 							            <span class="input-group-addon">Username</span> -->
+							            <input ng-model="login.username" type="text" class="form-control" placeholder="Username" required>
+							        </div>
+                                </div>
+                                <div class="form-group">
+									<div class="input-group">
+<!-- 									    <span class="input-group-addon">Password</span> -->
+									    <input ng-model="login.password" type="text" class="form-control" placeholder="Password" required>
+									</div>
+							    </div>
+                                <div class="form-group">
+                                    <button ng-click="logIn(login)" type="submit" class="btn btn-primary" value="logIn" style="width: 100%">Log In</button>
+                                </div>
+							</form>
+							<form action="">
+								<div class="form-group">
+								    <div class="input-group">
+<!-- 								        <span class="input-group-addon">Confirm Password:</span> -->
+								        <input ng-model="login.confirmPassword" type="text" class="form-control" placeholder="Confirm Password" required>
+								    </div>
+								                      </div>
+								                      <div class="form-group">
+								    <div class="input-group">
+<!-- 								        <span class="input-group-addon">Email</span> -->
+								        <input ng-model="login.email" type="text" class="form-control" placeholder="Email" required>
+								    </div>
+								 </div>
+								 <div class="form-group">
+								    <div class="input-group">
+<!-- 								        <span class="input-group-addon">Email</span> -->
+								        <input ng-model="login.confirmEmail" type="text" class="form-control" placeholder="Confirm Email" required>
+								    </div>
+								 </div>
+								 <div class="form-group">
+								        <button ng-click="registerAndLogIn(login)" type="submit" class="btn btn-primary" value="logIn" style="width: 100%">Register & Log In</button>
+								 </div>                          
+							</form>
+                        </div>
+
+                    </li>
+				</ul>
+
+			</div>
+
+		</div>
+	</nav>
+
+<!--     <div class="container"> -->
+<!--         <div class="row"> -->
+<!--             <div class="col-sm-3"> -->
+<!--                 <div class="well bs-sidebar affix">			 -->
+<!-- 				    <ul class="nav nav-pills nav-stacked"> -->
+<!-- 				        <li class="active"><a ui-sref="state1">State 1</a></li> -->
+<!-- 				        <li><a ui-sref="state2">State 2</a></li> -->
+<!-- 				        <li><a href="#">Messages</a></li> -->
+<!-- 				    </ul> -->
+<!-- 				</div> -->
+<!-- 			</div> -->
+<!-- 			<div class="col-sm-9"> -->
+<!--                 <div class="container" ng-controller="EditDatasetCtrl">  -->
+<!--                     <div ui-view></div> -->
+<!--                 </div> -->
+<!-- 			</div> -->
+<!--         </div> -->
+<!--     </div>		 -->
+
+
+    <div class="container-fluid">
+		<div class="row">
+		    <div class="col-md-12">
+		        <i style="color: grey; font-size: 14px; margin: 20px;">Let the RDF data cat help you track some tasty data!</i>
+		    </div>
+		</div>
+    </div>
+    <div class="container" ng-controller="EditDatasetCtrl"> 
+        <div ui-view></div>
+    </div>
+
+</body>
+
+</html>
+

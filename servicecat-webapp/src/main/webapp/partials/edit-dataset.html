@@ -1,0 +1,225 @@
+<form name="datasetForm" novalidate>
+    <div class="row">
+
+        <div class="col-md-12">
+        
+            <div class="container-fluid">
+
+                <div class="row">
+                
+                    <div class="col-md-6">
+                        <hr />
+                        <h3 ng-show="!editMode">View Dataset</h3>
+                        <h3 ng-show="editMode && dataset.desc.id">Edit Dataset</h3>
+                        <h3 ng-show="editMode && !dataset.desc.id">Register a new Dataset</h3>
+
+                        <div class="container">
+                        <div class="row">
+<!--                         <div class="form-group"> -->
+<!--                             <div class="input-group"> -->
+<!--                                 <span class="input-group-addon">Group Id</span> -->
+<div class="col-md-3">
+                                <input ng-show="editMode" ng-model="dataset.desc.groupId" facet-typeahead="ftac" facet-typeahead-path="'http://dcat.cc/ontology/groupId'" type="text" class="form-control" placeholder="Group Id" required>
+                                <span ng-show="!editMode">{{dataset.desc.groupId}}</span>
+</div>                                
+<!--                             </div> -->
+<!--                         </div> -->
+<!--                         <div class="form-group"> -->
+<!--                             <div class="input-group"> -->
+<!--                                 <span class="input-group-addon">Group ID</span> -->
+<div class="col-md-3">
+                                <input ng-show="editMode" ng-model="dataset.desc.artifactId" facet-typeahead="ftac" facet-typeahead-path="'http://dcat.cc/ontology/artifactId'" type="text" class="form-control" placeholder="Artifact Id" required>
+                                <span ng-show="!editMode">{{dataset.desc.artifactId}}</span>
+</div>
+<!--                             </div> -->
+<!--                         </div> -->
+<!--                         <div class="form-group"> -->
+<!--                             <div class="input-group"> -->
+<!--                                 <span class="input-group-addon">Version</span> -->
+<div class="col-md-3">
+                                <input ng-show="editMode" ng-model="dataset.desc.version" facet-typeahead="ftac" facet-typeahead-path="'http://dcat.cc/ontology/version'" type="text" class="form-control" placeholder="Version" required>
+                                <span ng-show="!editMode">{{dataset.desc.version}}</span>
+</div>
+</div>
+</div>
+<!--                             </div> -->
+                        </div>
+    <!--                     <div class="form-group"> -->
+    <!--                         <div class="input-group"> -->
+    <!--                             <span class="input-group-addon">UUID</span> -->
+    <!--                             <input type="text" class="form-control" placeholder="Dataset UUID (optional)"> -->
+    <!--                         </div> -->
+    <!--                     </div> -->
+    
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+        
+    <div class="row">
+    
+        <div class="col-xs-12 col-sm-6 col-md-3">
+            <hr />
+            <h4>Downloads</h4>
+            <ul class="media-list">
+                <li class="media" ng-if="dataset.desc.downloadLocations.length === 0">
+                    <div class="media-body">
+                        <span style="color:grey"><i>No downloadLocations specified</i></span>
+                    </div>
+                </li>
+                <li class="media" ng-repeat="downloadLocation in dataset.desc.downloadLocations track by $index" ng-controller="ArmDeleteCtrl">
+                    <div class="media-body">                                
+    
+                        <div ng-if="editMode" class="input-group">    
+                            <input title="{{downloadLocation}}" ng-model="dataset.desc.downloadLocations[$index]" type="text" class="form-control" type="url" required></input>
+                            <span class="input-group-btn">
+                                <button class="btn btn-default" ng-click="showAll=!showAll"><span class="glyphicon" ng-class="{'glyphicon-chevron-left': !showAll, 'glyphicon-chevron-right': showAll}"></span></button>
+                                <button ng-show="showAll" class="btn btn-default" ng-if="$index > 0" ng-click="swapArrayItems(dataset.desc.downloadLocations, $index, $index-1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-up"></span></button>
+                                <button ng-show="showAll" class="btn btn-default" ng-if="$index < (dataset.desc.downloadLocations.length-1)" ng-click="swapArrayItems(dataset.desc.downloadLocations, $index, $index+1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-down"></span></button>
+                                <button ng-show="showAll" class="btn" ng-class="{'btn-danger': isDeleteArmed, 'btn-default': !isDeleteArmed}" ng-click="remove(dataset.desc.downloadLocations, $index)"><span class="glyphicon glyphicon-remove-circle"></span></button>
+                            </span>
+    
+    <!--                         <div> -->
+    <!--                             <span class="error" ng-show="downloadLocation.url.$error.required">Required!</span> -->
+    <!--                             <span class="error" ng-show="downloadLocation.url.$error.url">Invalid URL format!</span> -->
+    <!--                         </div> -->
+    
+                        </div>
+
+                        <span ng-if="!editMode">{{downloadLocation}}</span>
+                        
+                    </div>
+                 </li>
+             </ul>
+             <button ng-if="editMode" class="btn btn-large btn-primary" ng-click="dataset.desc.downloadLocations.push('http://')"><span class="glyphicon glyphicon-plus"></span> Add Download</button>
+    
+        </div>
+        
+        
+        <div class="col-xs-12 col-sm-6 col-md-3">
+            <hr />
+            <h4>Sparql Endpoints</h4>                             
+            
+            <ul class="media-list">
+                <li class="media" ng-if="dataset.desc.sparqlEndpoints.length === 0">
+                    <div class="media-body">
+                        <span style="color:grey"><i>No sparql endpoints specified</i></span>
+                    </div>
+                </li>                                
+                <li class="media" ng-repeat="sparqlEndpoint in dataset.desc.sparqlEndpoints track by $index" ng-controller="ArmDeleteCtrl">                                
+                    <div class="media-body">
+                    <!-- style="border-left-style: dashed; border-left-width: 1px; border-color: grey;"  -->
+                        <div ng-if="editMode" class="input-group">                                
+                            <input ng-model="sparqlEndpoint.url" type="text" class="form-control"></input>
+                            <span class="input-group-btn">
+                                <button class="btn btn-default" ng-click="showAll=!showAll"><span class="glyphicon" ng-class="{'glyphicon-chevron-left': !showAll, 'glyphicon-chevron-right': showAll}"></span></button>        
+                                <button ng-show="showAll" class="btn" ng-if="$index > 0" ng-click="swapArrayItems(dataset.desc.sparqlEndpoints, $index, $index-1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-up"></span></button>
+                                <button ng-show="showAll" class="btn" ng-if="$index < (dataset.desc.sparqlEndpoints.length-1)" ng-click="swapArrayItems(dataset.desc.sparqlEndpoints, $index, $index+1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-down"></span></button>
+                                <button ng-show="showAll" class="btn" ng-class="{'btn-danger': isDeleteArmed, 'btn-default': !isDeleteArmed}" ng-click="remove(dataset.desc.sparqlEndpoints, $index)"><span class="glyphicon glyphicon-remove-circle"></span></button>
+        
+        <!--                          <button ng-show="showAll" class="btn btn-default" ng-if="$index > 0" ng-click="swapArrayItems(dataset.desc.downloadLocations, $index, $index-1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-up"></span></button> -->
+        <!--                          <button ng-show="showAll" class="btn btn-default" ng-if="$index < (dataset.desc.downloadLocations.length-1)" ng-click="swapArrayItems(dataset.desc.downloadLocations, $index, $index+1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-down"></span></button> -->
+        <!--                         <button ng-show="showAll" class="btn" ng-class="{'btn-danger': isDeleteArmed, 'btn-default': !isDeleteArmed}" ng-click="remove(dataset.desc.downloadLocations, $index)"><span class="glyphicon glyphicon-remove-circle"></span></button>                                                 -->
+                            </span>
+                        </div>
+                        
+                        <span ng-if="!editMode">{{sparqlEndpoint.url}}</span>
+    
+                        <ul class="media-list" style="margin-left: 16px">
+                            <li class="media" ng-show="sparqlEndpoint.defaultGraphs.length===0">
+                                <div class="media-body">
+                                    <span style="color:grey"><i>No default graphs specified</i></span>
+                                </div>
+                            </li>
+                        
+                            <li class="media" ng-repeat="defaultGraph in sparqlEndpoint.defaultGraphs track by $index" ng-controller="ArmDeleteCtrl">
+                                <div class="media-body">
+                                    <div ng-if="editMode" class="input-group">                                
+                                        <input ng-model="sparqlEndpoint.defaultGraphs[$index]" type="text" class="form-control"></input>
+                                        <span class="input-group-btn">
+                                            <button class="btn btn-default" ng-click="showAll=!showAll"><span class="glyphicon" ng-class="{'glyphicon-chevron-left': !showAll, 'glyphicon-chevron-right': showAll}"></span></button>        
+                                            <button ng-show="showAll" class="btn" ng-if="$index > 0" ng-click="swapArrayItems(sparqlEndpoint.defaultGraphs, $index, $index-1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-up"></span></button>
+                                            <button ng-show="showAll" class="btn" ng-if="$index < (sparqlEndpoint.defaultGraphs.length-1)" ng-click="swapArrayItems(sparqlEndpoint.defaultGraphs, $index, $index+1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-down"></span></button>
+                                            <button ng-show="showAll" class="btn" ng-class="{'btn-danger': isDeleteArmed, 'btn-default': !isDeleteArmed}" ng-click="remove(sparqlEndpoint.defaultGraphs, $index)"><span class="glyphicon glyphicon-remove-circle"></span></button>
+                                        </span>
+                                    </div>                                     
+                                     <!--  ng-focus="sparqlEndpoint.focusIndex=$index" custom-autofocus="sparqlEndpoint.focusIndex==$index" -->
+        <!--                             <button class="btn btn-large btn-primary" ng-click="dataset.desc.sparqlEndpoints.push({defaultGraphs: []})"><span class="glyphicon glyphicon-plus"></span> Add Sparql Endpoint</button>                         -->
+        
+                                    <span ng-if="!editMode">{{sparqlEndpoint.defaultGraphs[$index]}}</span>
+                                </div>
+                            </li>
+                        </ul>
+                        <button ng-if="editMode" class="pull-right btn btn-large btn-info" ng-click="sparqlEndpoint.defaultGraphs.push('http://')"><span class="glyphicon glyphicon-plus"></span> Add Default Graph</button>
+                        
+                    </div>
+                    <hr />
+                 </li>
+             </ul>
+            <button ng-if="editMode" class="btn btn-large btn-primary" ng-click="dataset.desc.sparqlEndpoints.push({url: 'http://', defaultGraphs: []})"><span class="glyphicon glyphicon-plus"></span> Add Sparql Endpoint</button>
+    
+        </div>
+    
+    
+<!--         <div class="col-xs-12 col-sm-6 col-md-3"> -->
+<!--             <hr /> -->
+<!--             <h4>Containment</h4> -->
+<!--             To be done... -->
+    
+    <!--                                 <label></i>I claim that the enumeration is complete and exact</i> <input type="checkbox" ng-model="dataset.desc.containment.isExact"></label> -->
+    
+    <!--                                 <ul> -->
+    <!--                                     <li ng-repeat="items in dataset.desc.containment.items" ng-controller="ArmDeleteCtrl">                 -->
+    <!--                                          <input ng-model="item.url" type="text" class="form-control"></input> -->
+    <!--                                          <a class="btn" ng-class="{'alert alert-danger': isDeleteArmed}" ng-click="remove(dataset.desc.containment.items, $index)"><span class="glyphicon glyphicon-remove-circle"></span></a> -->
+    <!--                                          <a class="btn" ng-if="$index > 0" ng-click="swapArrayItems(dataset.desc.containment.items, $index, $index-1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-up"></span></a> -->
+    <!--                                          <a class="btn" ng-if="$index < (dataset.desc.containment.items.length-1)" ng-click="swapArrayItems(dataset.desc.containment.items, $index, $index+1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-down"></span></a> -->
+    <!--                                      </li> -->
+    <!--                                  </ul> -->
+    <!--                                 <button class="btn btn-large btn-primary" ng-click="dataset.desc.containment.items.push({})"><span class="glyphicon glyphicon-plus"></span> Add Containment Record</button>                                 -->
+    
+<!--         </div> -->
+    
+    
+        <div class="col-xs-12 col-sm-6 col-md-3"> <!-- style="border-style: solid; border-width: 1px; border-color: black" -->
+<!--             <hr /> -->
+<!--             <h4>Relations</h4> -->
+<!--             Ignore those for now - will come soon ;) -->
+<!--             <ul class="media-list"> -->
+<!--                 <li class="media" ng-if="dataset.desc.relations.length === 0"> -->
+<!--                     <div class="media-body"> -->
+<!--                         <span style="color:grey"><i>No relations specified</i></span> -->
+<!--                     </div> -->
+<!--                 </li>                                 -->
+<!--                 <li class="media" ng-repeat="relation in dataset.desc.relations" ng-controller="ArmDeleteCtrl"> -->
+<!--                     <div class="media-body"> -->
+<!--                          <input ng-model="relation.type" type="text" class="form-control"></input> -->
+<!--                          <input ng-model="relation.target" type="text" class="form-control"></input> -->
+<!--                          <a class="btn" ng-class="{'alert alert-danger': isDeleteArmed}" ng-click="remove(dataset.desc.relations, $index)"><span class="glyphicon glyphicon-remove-circle"></span></a> -->
+<!--                          <a class="btn" ng-if="$index > 0" ng-click="swapArrayItems(dataset.desc.relations, $index, $index-1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-up"></span></a> -->
+<!--                          <a class="btn" ng-if="$index < (dataset.desc.relations.length-1)" ng-click="swapArrayItems(dataset.desc.relations, $index, $index+1)"><span class="glyphicon glyphicon glyphicon-circle-arrow-down"></span></a> -->
+<!--                      </div> -->
+<!--                  </li> -->
+<!--              </ul> -->
+             
+<!--              <button ng-if="editMode" class="btn btn-large btn-primary" ng-click="dataset.desc.relations.push({})"><span class="glyphicon glyphicon-plus"></span> Add Relation</button> -->
+        </div>                            
+    </div>
+    
+    <div class="row">
+        <hr />
+        <div class="col-md-3">
+            <span ng-show="!account.username">You need to log in before you can edit datasets</span>
+
+            <button ng-show="account.username && editMode" type="submit" class="btn btn-success" ng-click="store(dataset.desc)">Save</button>
+<!--             <button ng-if="editMode" class="btn btn-default" ng-click="editMode=false">Cancel</button> -->
+            <button ng-show="account.username && !editMode && dataset.desc.id" class="btn btn-default" ng-click="editMode=!editMode">Edit</button>
+            <button ng-show="account.username && editMode" class="btn btn-default" ng-click="editMode=!editMode">Cancel Edit</button>
+            <button ng-show="account.username && !editMode && dataset.desc.id" class="btn btn-default" ng-click="deleteDataset(dataset.desc.id)">Delete</button>
+        </div>
+    </div>                        
+        
+
+</form>

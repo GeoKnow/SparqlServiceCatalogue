@@ -1,12 +1,44 @@
-*.class
+.buildpath
+.classpath
+.project
+.settings
+.tmp
+target
 
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
+cache
+dist
 
-# Package Files #
 *.jar
-*.war
-*.ear
+*.toc
+*.out
+*.pdf
+*.aux
+*.log
+*.bbl
+*.blg
+*.dsc
+*.deb
+*.build
+*.changes
+*.gz
+*.substvars
+*.swp
 
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
+node_modules
+bower_components
+
+views.sparqlify
+platform.properties
+run-panlex.sh
+deptree.txt
+
+
+## Temporary excludes
+dependency-tree.txt
+
+release.properties
+pom.xml.releaseBackup
+
+datacat-core/bin/
+datacat-webapp/bin/
+

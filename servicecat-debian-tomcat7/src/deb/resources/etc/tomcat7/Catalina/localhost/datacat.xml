@@ -1,0 +1,41 @@
+<Context path="/datacat"
+  docBase="/usr/share/lib/datacat-tomcat-common/datacat-tomcat-common.war"
+  crossContext="false"
+  reloadable="false">
+
+  <Resource
+    name="jdbc/datacat/dataSource"
+    auth="Container"
+    type="javax.sql.DataSource"
+    driverClassName="org.postgresql.Driver"
+    url="jdbc:postgresql://localhost:5432/datacattomcatcommon"
+    username="postgres"
+    password="postgres"
+    maxActive="-1"
+    minIdle="0"
+    maxIdle="10"
+    maxWait="10000"
+    minEvictableIdleTimeMillis="300000"
+    timeBetweenEvictionRunsMillis="300000"
+    numTestsPerEvictionRun="20"
+    poolPreparedStatements="true"
+    maxOpenPreparedStatements="100"
+    testOnBorrow="true"
+    accessToUnderlyingConnectionAllowed="true"
+    validationQuery="SELECT VERSION();"
+  />
+
+
+  <!--
+      factory="com.jolbox.bonecp.BoneCPDataSource"
+      idleConnectionTestPeriod="60"
+      partitionCount="3"
+      acquireIncrement="5"
+      maxConnectionsPerPartition="5"
+      minConnectionsPerPartition="1"
+      statementsCacheSize="50"
+      releaseHelperThreads="5"
+  -->
+
+</Context>
+

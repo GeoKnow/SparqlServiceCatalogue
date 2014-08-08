@@ -1,0 +1,9 @@
+{
+  "name": "rdf-dataset-catalog-client",
+  "version": "0.0.1",
+  "dependencies": {
+    "jassa-ui-angular": "0.0.3-SNAPSHOT",
+    "jassa-ui-angular-openlayers": "0.0.3-SNAPSHOT",
+    "angular-ui-router": "0.2.10"
+  }
+}

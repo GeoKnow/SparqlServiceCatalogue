@@ -1,0 +1,9 @@
+Package: datacat-tomcat-common
+Version: [[version]]
+Section: web
+Priority: optional
+Architecture: all
+Depends: dbconfig-common, postgresql
+Maintainer: Claus Stadler <cstadler@informatik.uni-leipzig.de>
+Description: Datacat Tomcat Common
+Distribution: development
