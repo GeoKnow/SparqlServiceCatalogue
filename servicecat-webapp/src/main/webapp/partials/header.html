@@ -1,0 +1,96 @@
+<nav class="navbar navbar-default" role="navigation">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+            <a class="navbar-brand" style="padding: 3px 15px;" href="#"><img style="height: 42px;" src="images/logo-datacat-default.png" alt=""></img></a>
+            <a class="navbar-brand" href="#"><span style="color: #ab3479">SPARQL</span> <span style="color: #df752c">Service</span> <span style="color: #7db442">Cat</span>alog</a>
+        </div>
+
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+<!--                 <form class="navbar-form navbar-left" role="search"> -->
+<!--                    <div class="form-group"> -->
+<!--                        <div class="input-group"> -->
+<!--                            <input type="text" ng-model="app.searchString" class="form-control" placeholder="Find Dataset..."> -->
+<!--                            <span class="input-group-btn"> -->
+<!--                                <button type="submit" class="btn btn-default" ng-click="doSearch(app.searchString)">Submit</button> -->
+<!--                            </span> -->
+<!--                        </div>                       -->
+<!--                    </div> -->
+<!--                </form> -->
+
+            <ul class="nav nav-pills navbar-nav">
+                <li class="active"><a ui-sref="home">Home</a></li>
+                <li><a ui-sref="register-service">Add a Service</a></li>
+<!--                    <li><a ui-sref="state2">Browse</a></li> -->
+                <li><a ui-sref="faq">FAQ</a></li>
+                <li><a ui-sref="about">About</a></li>
+                <li><a href="api/sparql" target="_blank">Sparql</a></li>
+            </ul>       
+
+            <ul class="nav nav-pills navbar-nav navbar-right">
+                <li ng-show="account.username" class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">Hello, {{account.username}}! <b class="caret"></b></a>
+                    <ul class="dropdown-menu">
+                        <li><a href="" ng-click="logOut()">Logout</a></li>
+                    </ul>
+                </li>
+                <li ng-show="!account.username" class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown">Login <b class="caret"></b></a>
+                    <div class="dropdown-menu" style="width: 300px; padding: 15px; padding-bottom: 0px;">
+                        <form action="">
+                            <div class="form-group">
+                                <div class="input-group">
+<!--                                        <span class="input-group-addon">Username</span> -->
+                                    <input ng-model="login.username" type="text" class="form-control" placeholder="Username" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="input-group">
+<!--                                        <span class="input-group-addon">Password</span> -->
+                                    <input ng-model="login.password" type="text" class="form-control" placeholder="Password" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <button ng-click="logIn(login)" type="submit" class="btn btn-primary" value="logIn" style="width: 100%">Log In</button>
+                            </div>
+                        </form>
+                        <form action="">
+                            <div class="form-group">
+                                <div class="input-group">
+<!--                                        <span class="input-group-addon">Confirm Password:</span> -->
+                                    <input ng-model="login.confirmPassword" type="text" class="form-control" placeholder="Confirm Password" required>
+                                </div>
+                                                  </div>
+                                                  <div class="form-group">
+                                <div class="input-group">
+<!--                                        <span class="input-group-addon">Email</span> -->
+                                    <input ng-model="login.email" type="text" class="form-control" placeholder="Email" required>
+                                </div>
+                             </div>
+                             <div class="form-group">
+                                <div class="input-group">
+<!--                                        <span class="input-group-addon">Email</span> -->
+                                    <input ng-model="login.confirmEmail" type="text" class="form-control" placeholder="Confirm Email" required>
+                                </div>
+                             </div>
+                             <div class="form-group">
+                                    <button ng-click="registerAndLogIn(login)" type="submit" class="btn btn-primary" value="logIn" style="width: 100%">Register & Log In</button>
+                             </div>                          
+                        </form>
+                    </div>
+
+                </li>
+            </ul>
+
+        </div>
+
+    </div>
+</nav>
+    

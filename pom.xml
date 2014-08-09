@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.aksw.servicecat</groupId>
-    <artifactId>servicecat-parent</artifactId>
-    <packaging>pom</packaging>
-    <version>0.0.1-SNAPSHOT</version>
-    <name>RDF Service Catalog - Parent</name>
+	<groupId>org.aksw.servicecat</groupId>
+	<artifactId>servicecat-parent</artifactId>
+	<packaging>pom</packaging>
+	<version>0.0.1-SNAPSHOT</version>
+	<name>ServiceCat - Parent</name>
 
 	<developers>
 		<developer>
@@ -26,22 +27,22 @@
 
 
 
-    <scm>
-        <connection>scm:git:git@github.com:AKSW/RdfServiceCatalog.git</connection>
-        <!-- developerConnection></developerConnection -->
-        <!-- url>https://my-project.googlecode.com/svn</url -->
-    <tag>HEAD</tag>
-  </scm>
+	<scm>
+		<connection>scm:git:git@github.com:AKSW/SparqlServiceCatalog.git</connection>
+		<!-- developerConnection></developerConnection -->
+		<!-- url>https://my-project.googlecode.com/svn</url -->
+		<tag>HEAD</tag>
+	</scm>
 
-    <properties>
+	<properties>
 		<!-- Dependency Versions -->
 		<!-- facete2 only works with jena-sparql-api version 2.10.0-27 and onwards -->
-		<jena-sparql-api.version>2.11.1-48</jena-sparql-api.version>
+		<jena-sparql-api.version>2.11.2-56</jena-sparql-api.version>
 		<jassa.version>0.0.4</jassa.version>
 		<sparqlify.version>0.6.12</sparqlify.version>
 
 		<spring.version>3.2.8.RELEASE</spring.version>
-        <spring.batch.version>2.2.5.RELEASE</spring.batch.version>
+		<spring.batch.version>2.2.5.RELEASE</spring.batch.version>
 
 
 		<slf4j.version>1.6.0</slf4j.version>
@@ -55,17 +56,17 @@
 		<file.encoding>UTF-8</file.encoding>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    </properties>
+	</properties>
 
-    <modules>
-        <module>servicecat-core</module>
-	<module>servicecat-webapp</module>
-	<module>servicecat-debian-tomcat-common</module>
-	<module>servicecat-debian-tomcat7</module>
-    </modules>
+	<modules>
+		<module>servicecat-core</module>
+		<module>servicecat-webapp</module>
+		<module>servicecat-debian-tomcat-common</module>
+		<module>servicecat-debian-tomcat7</module>
+	</modules>
 
-    <build>
-        <plugins>
+	<build>
+		<plugins>
 			<!-- That's a sledge hammer solution - but at least it works ... -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -119,8 +120,8 @@
 					</execution>
 				</executions>
 			</plugin>
-        </plugins>
-    </build>
+		</plugins>
+	</build>
 
 	<repositories>
 		<repository>
@@ -136,56 +137,40 @@
 		</repository>
 	</repositories>
 
-    <dependencyManagement>
-        <dependencies>
+	<dependencyManagement>
+		<dependencies>
 			<!-- Self dependencies -->
-		<dependency>
-			<groupId>org.aksw.servicecat</groupId>
-			<artifactId>servicecat-webapp</artifactId>
-			<version>${project.version}</version>
-			<type>war</type>
-		</dependency>
-<!-- 			<dependency> -->
-<!-- 				<groupId>org.aksw.facete2</groupId> -->
-<!-- 				<artifactId>facete2-webapp</artifactId> -->
-<!-- 				<version>${project.version}</version> -->
-<!-- 				<type>war</type> -->
-<!-- 			</dependency> -->
-
-<!--
 			<dependency>
-				<groupId>org.aksw.sparqlify</groupId>
-				<artifactId>sparqlify-jpa</artifactId>
-				<version>0.6.6-SNAPSHOT</version>
+				<groupId>org.aksw.servicecat</groupId>
+				<artifactId>servicecat-webapp</artifactId>
+				<version>${project.version}</version>
+				<type>war</type>
 			</dependency>
--->
+			<!-- <dependency> -->
+			<!-- <groupId>org.aksw.facete2</groupId> -->
+			<!-- <artifactId>facete2-webapp</artifactId> -->
+			<!-- <version>${project.version}</version> -->
+			<!-- <type>war</type> -->
+			<!-- </dependency> -->
+
+			<!-- <dependency> <groupId>org.aksw.sparqlify</groupId> <artifactId>sparqlify-jpa</artifactId> 
+				<version>0.6.6-SNAPSHOT</version> </dependency> -->
 
 
 			<!-- Jena SPARQL API -->
-<!--
-			<dependency>
-				<groupId>org.aksw.jena-sparql-api</groupId>
-				<artifactId>jena-sparql-api-core</artifactId>
-				<version>${jena-sparql-api.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.aksw.jena-sparql-api</groupId>
-				<artifactId>jena-sparql-api-servlets</artifactId>
-				<version>${jena-sparql-api.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.aksw.jena-sparql-api</groupId>
-				<artifactId>jena-sparql-api-server</artifactId>
-				<version>${jena-sparql-api.version}</version>
-			</dependency>
--->
+			<!-- <dependency> <groupId>org.aksw.jena-sparql-api</groupId> <artifactId>jena-sparql-api-core</artifactId> 
+				<version>${jena-sparql-api.version}</version> </dependency> <dependency> 
+				<groupId>org.aksw.jena-sparql-api</groupId> <artifactId>jena-sparql-api-servlets</artifactId> 
+				<version>${jena-sparql-api.version}</version> </dependency> <dependency> 
+				<groupId>org.aksw.jena-sparql-api</groupId> <artifactId>jena-sparql-api-server</artifactId> 
+				<version>${jena-sparql-api.version}</version> </dependency> -->
 
 			<!-- Jassa API -->
 			<dependency>
 				<groupId>org.aksw.jassa</groupId>
 				<artifactId>jassa-servlets</artifactId>
 				<version>${jassa.version}</version>
-<!--				<type>war</type> -->
+				<!-- <type>war</type> -->
 			</dependency>
 
 			<dependency>
@@ -223,20 +208,20 @@
 			<dependency>
 				<groupId>com.jolbox</groupId>
 				<artifactId>bonecp</artifactId>
-				<version>0.7.1.RELEASE</version>				
+				<version>0.8.0.RELEASE</version>
 			</dependency>
 
-		    <dependency>
-		            <groupId>org.springframework</groupId>
-		            <artifactId>spring-jdbc</artifactId>
-		            <version>${spring.version}</version>
-		            <exclusions>
-		                    <exclusion>
-		                            <groupId>commons-logging</groupId>
-		                            <artifactId>commons-logging</artifactId>
-		                    </exclusion>
-		            </exclusions>
-		    </dependency>
+			<dependency>
+				<groupId>org.springframework</groupId>
+				<artifactId>spring-jdbc</artifactId>
+				<version>${spring.version}</version>
+				<exclusions>
+					<exclusion>
+						<groupId>commons-logging</groupId>
+						<artifactId>commons-logging</artifactId>
+					</exclusion>
+				</exclusions>
+			</dependency>
 
 			<dependency>
 				<groupId>org.aksw.jdbc-utils</groupId>
@@ -256,7 +241,7 @@
 			<dependency>
 				<groupId>com.google.code.gson</groupId>
 				<artifactId>gson</artifactId>
-				<version>2.2.2</version>
+				<version>2.2.4</version>
 				<scope>compile</scope>
 			</dependency>
 
@@ -268,18 +253,18 @@
 				<version>4.11</version>
 				<scope>test</scope>
 			</dependency>
-			
+
 			<!-- Spring Batch dependencies -->
-<!-- 			<dependency> -->
-<!-- 			        <groupId>org.springframework.batch</groupId> -->
-<!-- 			        <artifactId>spring-batch-core</artifactId> -->
-<!-- 			        <version>${spring.batch.version}</version> -->
-<!-- 			</dependency> -->
-<!-- 			<dependency> -->
-<!-- 			        <groupId>org.springframework.batch</groupId> -->
-<!-- 			        <artifactId>spring-batch-infrastructure</artifactId> -->
-<!-- 			        <version>${spring.batch.version}</version> -->
-<!-- 			</dependency> -->
+			<!-- <dependency> -->
+			<!-- <groupId>org.springframework.batch</groupId> -->
+			<!-- <artifactId>spring-batch-core</artifactId> -->
+			<!-- <version>${spring.batch.version}</version> -->
+			<!-- </dependency> -->
+			<!-- <dependency> -->
+			<!-- <groupId>org.springframework.batch</groupId> -->
+			<!-- <artifactId>spring-batch-infrastructure</artifactId> -->
+			<!-- <version>${spring.batch.version}</version> -->
+			<!-- </dependency> -->
 
 			<dependency>
 				<groupId>org.aksw.sparqlify</groupId>
@@ -287,26 +272,26 @@
 				<version>${sparqlify.version}</version>
 			</dependency>
 
-		    <dependency>
-		        <groupId>org.springframework.security</groupId>
-		        <artifactId>spring-security-web</artifactId>
-		        <version>3.2.3.RELEASE</version>
-		    </dependency>
+			<dependency>
+				<groupId>org.springframework.security</groupId>
+				<artifactId>spring-security-web</artifactId>
+				<version>3.2.3.RELEASE</version>
+			</dependency>
 
-		    <dependency>
-		        <groupId>org.springframework.security</groupId>
-		        <artifactId>spring-security-config</artifactId>
-		        <version>3.2.3.RELEASE</version>
-		    </dependency>
+			<dependency>
+				<groupId>org.springframework.security</groupId>
+				<artifactId>spring-security-config</artifactId>
+				<version>3.2.3.RELEASE</version>
+			</dependency>
 
 			<dependency>
 				<groupId>org.hibernate</groupId>
 				<artifactId>hibernate-entitymanager</artifactId>
 				<version>4.2.3.Final</version>
 			</dependency>
-		    
 
-            <dependency>
+
+			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-orm</artifactId>
 				<version>${spring.version}</version>
@@ -318,15 +303,15 @@
 					</exclusion>
 				</exclusions>
 			</dependency>
-		    
-            <dependency>
+
+			<dependency>
 				<groupId>org.springframework</groupId>
 				<artifactId>spring-webmvc</artifactId>
 				<version>${spring.version}</version>
 			</dependency>
 
-        </dependencies>
-    </dependencyManagement>
+		</dependencies>
+	</dependencyManagement>
 
 	<distributionManagement>
 		<repository>

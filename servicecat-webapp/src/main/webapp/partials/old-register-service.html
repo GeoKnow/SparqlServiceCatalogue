@@ -1,0 +1,9 @@
+<div ui-view>
+    <div ng-if="session.user" ng-include="'partials/edit-service.html'"></div>
+    
+    <div ng-if="!session.user" class="row">
+        <div class="col-md-12">
+            You need to sign in before you can register a new service.
+        </div>
+    </div>
+</div>

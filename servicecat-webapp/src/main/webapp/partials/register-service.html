@@ -1,0 +1,11 @@
+<form name="serviceForm" ng-submit="submitForm(serviceForm.$valid)" novalidate>
+
+	<div class="form-group"  ng-class="{ 'has-error' : serviceForm.serviceUrl.$invalid && !serviceForm.serviceUrl.$pristine }">
+	    <label>Service URL</label>
+	    <input ng-model="serviceUrl" type="url" name="serviceUrl" class="form-control" placeholder="E.g. http://dbpedia.org/sparql" required>
+	    <p ng-show="serviceForm.serviceUrl.$invalid && !serviceForm.serviceUrl.$pristine" class="help-block">Input is not a valid HTTP URL</p>
+	</div>
+	
+	<button type="submit" class="btn btn-primary btn-lg" ng-class="{ 'disabled' : !serviceForm.$valid }">Register</button>
+
+</form>

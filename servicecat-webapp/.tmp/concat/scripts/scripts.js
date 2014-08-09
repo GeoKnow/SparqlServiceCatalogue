@@ -9347,7 +9347,7 @@ var Class = function () {
  * (modules are just namespaces, and it feels pretty obstrusive writing them in upper camel case)
  * 
  */
-var Jassa = {
+var jassa = {
     vocab: {
       util: {},
       xsd: {},
@@ -9369,12 +9369,14 @@ var Jassa = {
       leaflet: {}
     }
   };
+// Upper case version for legacy code 
+var Jassa = jassa;
 // Export for nodejs
 var module;
 if (!module) {
   module = {};
 }
-module['exports'] = Jassa;
+module['exports'] = jassa;
 (function () {
   var ns = Jassa.util;
   ns.MapUtils = {
@@ -9407,7 +9409,7 @@ module['exports'] = Jassa;
         values = [];
         obj[key] = values;
       }
-      values.push(value);
+      values.push(val);
     },
     clear: function (obj) {
       var keys = _(obj).keys();
@@ -9459,6 +9461,17 @@ module['exports'] = Jassa;
     }
   });
   ns.ArrayUtils = {
+    addAll: function (arr, items) {
+      return arr.push.apply(arr, items);
+    },
+    chunk: function (arr, chunkSize) {
+      var result = [];
+      for (var i = 0; i < arr.length; i += chunkSize) {
+        var chunk = arr.slice(i, i + chunkSize);
+        result.push(chunk);
+      }
+      return result;
+    },
     clear: function (arr) {
       while (arr.length > 0) {
         arr.pop();
@@ -9466,12 +9479,58 @@ module['exports'] = Jassa;
     },
     replace: function (target, source) {
       this.clear(target);
-      target.push.apply(target, source);
+      if (source) {
+        target.push.apply(target, source);
+      }
     },
     filter: function (arr, fn) {
       var newArr = _(arr).filter(fn);
       this.replace(arr, newArr);
       return arr;
+    },
+    indexesOf: function (arr, val, fnEquals) {
+      fnEquals = fnEquals || ns.defaultEquals;
+      var result = [];
+      _(arr).each(function (item, index) {
+        var isEqual = fnEquals(val, item);
+        if (isEqual) {
+          result.push(index);
+        }
+      });
+      return result;
+    },
+    grep: function (arr, fnPredicate) {
+      var result = [];
+      _(arr).each(function (item, index) {
+        var isTrue = fnPredicate(item, index);
+        if (isTrue) {
+          result.push(index);
+        }
+      });
+      return result;
+    },
+    copyWithoutIndexes: function (arr, indexes) {
+      var map = {};
+      _(indexes).each(function (index) {
+        map[index] = true;
+      });
+      var result = [];
+      for (var i = 0; i < arr.length; ++i) {
+        var omit = map[i];
+        if (!omit) {
+          result.push(arr[i]);
+        }
+      }
+      return result;
+    },
+    removeIndexes: function (arr, indexes) {
+      var tmp = this.copyWithoutIndexes(arr, indexes);
+      this.replace(arr, tmp);
+      return arr;
+    },
+    removeByGrep: function (arr, fnPredicate) {
+      var indexes = this.grep(arr, fnPredicate);
+      this.removeIndexes(arr, indexes);
     }
   };
   ns.Iterator = Class.create({
@@ -9619,12 +9678,12 @@ module['exports'] = Jassa;
       this.keys = [];
     },
     put: function (key, value) {
-      var v = map.get(key);
+      var v = this.map.get(key);
       if (v) {
         throw 'Key ' + v + ' already inserted';
       }
       this.keys.push(key);
-      map.put(key, value);
+      this.map.put(key, value);
     },
     get: function (key) {
       var result = this.map.get(key);
@@ -9673,6 +9732,13 @@ module['exports'] = Jassa;
       this.fnEquals = fnEquals ? fnEquals : ns.defaultEquals;
       this.fnHash = fnHash ? fnHash : ns.defaultHashCode;
       this.hashToBucket = {};
+    },
+    putAll: function (map) {
+      var self = this;
+      _(map.entries()).each(function (entry) {
+        self.put(entry.key, entry.val);
+      });
+      return this;
     },
     put: function (key, val) {
       //			if(key == null) {
@@ -9841,7 +9907,11 @@ module['exports'] = Jassa;
         });
       var result = !!found;
       return result;
-    }
+    }  /*
+	    get: function(index) {
+	        
+	    },
+	    */
   });
   ns.ArrayList = Class.create({
     initialize: function (fnEquals) {
@@ -10139,7 +10209,7 @@ module['exports'] = Jassa;
         }
         var proto;
         if (classLabel) {
-          var proto = this.classNameToPrototype[classLabel];
+          proto = this.classNameToPrototype[classLabel];
           if (!proto) {
             var clazz = this.getClassForLabel(classLabel);
             if (clazz) {
@@ -10338,15 +10408,15 @@ module['exports'] = Jassa;
   ns.Serializer.singleton = new ns.Serializer();
 }());
 (function () {
+  'use strict';
   var ns = Jassa.rdf;
   /**
-	 * The node base class similar to that of Apache Jena.
-	 * 
-	 * 
-	 * TODO Rename getUri to getURI
-	 * TODO Make this class a pure interface - move all impled methods to an abstract base class
-	 * TODO Clarify who is responsible for .equals() (just do it like in Jena - Is it the base class or its derivations?)
-	 */
+   * The node base class similar to that of Apache Jena.
+   *
+   * TODO Rename getUri to getURI
+   * TODO Make this class a pure interface - move all impled methods to an abstract base class
+   * TODO Clarify who is responsible for .equals() (just do it like in Jena - Is it the base class or its derivations?)
+   */
   ns.Node = Class.create({
     classLabel: 'Node',
     getUri: function () {
@@ -10359,7 +10429,6 @@ module['exports'] = Jassa;
       throw ' is not a blank node';
     },
     getBlankNodeLabel: function () {
-      //throw " is not a blank node";
       // Convenience override
       return this.getBlankNodeId().getLabelString();
     },
@@ -10414,8 +10483,7 @@ module['exports'] = Jassa;
         if (that.isBlank()) {
           result = this.getBlankNodeLabel() === that.getBlankNodeLabel();
         }
-      }  //else if(this.)
-      else {
+      } else {
         throw 'not implemented yet';
       }
       return result;
@@ -10462,8 +10530,9 @@ module['exports'] = Jassa;
       return false;
     }
   });
-  // I don't understand the purpose of this class right now
-  // i.e. how it is supposed to differ from ns.Var
+  /* I don't understand the purpose of this class right now i.e. how it is
+   * supposed to differ from ns.Var
+   */
   ns.Node_Variable = Class.create(ns.Node_Fluid, {
     classLabel: 'Node_Variable',
     isVariable: function () {
@@ -10518,12 +10587,12 @@ module['exports'] = Jassa;
     return str;
   };
   /**
-	 * An simple object representing a literal -
-	 * independent from the Node inheritance hierarchy.
-	 * 
-	 * Differences to Jena:
-	 *   - No getDatatypeUri method, as there is dtype.getUri() 
-	 */
+   * An simple object representing a literal -
+   * independent from the Node inheritance hierarchy.
+   *
+   * Differences to Jena:
+   *   - No getDatatypeUri method, as there is dtype.getUri()
+   */
   ns.LiteralLabel = Class.create({
     classLabel: 'LiteralLabel',
     initialize: function (val, lex, lang, dtype) {
@@ -10584,8 +10653,7 @@ module['exports'] = Jassa;
   ns.DatatypeLabelInteger = Class.create(ns.DatatypeLabel, {
     classLabel: 'DatatypeLabelInteger',
     parse: function (str) {
-      var result = parseInt(str, 10);
-      return result;
+      return parseInt(str, 10);
     },
     unparse: function (val) {
       return '' + val;
@@ -10594,8 +10662,7 @@ module['exports'] = Jassa;
   ns.DatatypeLabelFloat = Class.create(ns.DatatypeLabel, {
     classLabel: 'DatatypeLabelFloat',
     parse: function (str) {
-      var result = parseFloat(str);
-      return result;
+      return parseFloat(str);
     },
     unparse: function (val) {
       return '' + val;
@@ -10638,23 +10705,18 @@ module['exports'] = Jassa;
       this.datatypeLabel = datatypeLabel;
     },
     parse: function (str) {
-      var result = this.datatypeLabel.parse(str);
-      return result;
+      return this.datatypeLabel.parse(str);
     },
     unparse: function (val) {
-      var result = this.datatypeLabel.unparse(val);
-      return result;
+      return this.datatypeLabel.unparse(val);
     }
   });
   // TODO Move to util package
   // http://stackoverflow.com/questions/249791/regex-for-quoted-string-with-escaping-quotes
   ns.strRegex = /"([^"\\]*(\\.[^"\\]*)*)"/;
-  /**
-     * 
-     */
   ns.parseUri = function (str, prefixes) {
     var result;
-    if (str.charAt(0) == '<') {
+    if (str.charAt(0) === '<') {
       result = str.slice(1, -1);
     } else {
       console.log('[ERROR] Cannot deal with ' + str);
@@ -10692,17 +10754,13 @@ module['exports'] = Jassa;
       return result;
     },
     parse: function (str) {
-      var result = new ns.TypedValue(str, this.datatypeUri);
-      return result;
+      return new ns.TypedValue(str, this.datatypeUri);
     },
     toString: function () {
       return 'Datatype [' + this.datatypeUri + ']';
     }
   });
-  /**
-	 * TypeMapper similar to that of Jena
-	 * 
-	 */
+  /** TypeMapper similar to that of Jena */
   ns.TypeMapper = Class.create({
     initialize: function (uriToDt) {
       this.uriToDt = uriToDt;
@@ -10755,38 +10813,31 @@ module['exports'] = Jassa;
         lang = '';
       }
       var label = new ns.LiteralLabel(value, value, lang);
-      var result = new ns.Node_Literal(label);
-      return result;
+      return new ns.Node_Literal(label);
     },
     createTypedLiteralFromValue: function (val, typeUri) {
       var dtype = ns.RdfDatatypes[typeUri];
       if (!dtype) {
         var typeMapper = ns.TypeMapper.getInstance();
-        dtype = typeMapper.getSafeTypeByName(typeUri);  //console.log('[ERROR] No dtype for ' + typeUri);
-                                                        //throw 'Bailing out';
+        dtype = typeMapper.getSafeTypeByName(typeUri);
       }
       var lex = dtype.unparse(val);
       var lang = null;
       var literalLabel = new ns.LiteralLabel(val, lex, lang, dtype);
-      var result = new ns.Node_Literal(literalLabel);
-      return result;
+      return new ns.Node_Literal(literalLabel);
     },
     createTypedLiteralFromString: function (str, typeUri) {
       var dtype = ns.RdfDatatypes[typeUri];
       if (!dtype) {
         var typeMapper = ns.TypeMapper.getInstance();
-        dtype = typeMapper.getSafeTypeByName(typeUri);  //				console.log('[ERROR] No dtype for ' + typeUri);
-                                                        //				throw 'Bailing out';
+        dtype = typeMapper.getSafeTypeByName(typeUri);
       }
       var val = dtype.parse(str);
       var lex = str;
-      //var lex = dtype.unparse(val);
-      //var lex = s; //dtype.parse(str);
       var lang = '';
       // TODO Use null instead of empty string???
       var literalLabel = new ns.LiteralLabel(val, lex, lang, dtype);
-      var result = new ns.Node_Literal(literalLabel);
-      return result;
+      return new ns.Node_Literal(literalLabel);
     },
     createFromTalisRdfJson: function (talisJson) {
       if (!talisJson || typeof talisJson.type === 'undefined') {
@@ -10821,7 +10872,7 @@ module['exports'] = Jassa;
         throw 'Bailing out';
       }
       str = str.trim();
-      if (str.length == 0) {
+      if (str.length === 0) {
         console.log('[ERROR] Empty string');
         throw 'Bailing out';
       }
@@ -10840,23 +10891,21 @@ module['exports'] = Jassa;
         var matches = ns.strRegex.exec(str);
         var match = matches[0];
         var val = match.slice(1, -1);
-        //console.log('match: ' + match);
         var l = match.length;
         var d = str.charAt(l);
         if (!d) {
-          var result = ns.NodeFactory.createTypedLiteralFromString(val, 'http://www.w3.org/2001/XMLSchema#string');
+          result = ns.NodeFactory.createTypedLiteralFromString(val, 'http://www.w3.org/2001/XMLSchema#string');
         }
-        //console.log('d is ' + d);
         switch (d) {
         case '':
         case '@':
           var langTag = str.substr(l + 1);
-          var result = ns.NodeFactory.createPlainLiteral(val, langTag);
+          result = ns.NodeFactory.createPlainLiteral(val, langTag);
           break;
         case '^':
           var type = str.substr(l + 2);
           var typeStr = ns.parseUri(type);
-          var result = ns.NodeFactory.createTypedLiteralFromString(val, typeStr);
+          result = ns.NodeFactory.createTypedLiteralFromString(val, typeStr);
           break;
         default:
           console.log('[ERROR] Excepted @ or ^^');
@@ -10868,15 +10917,7 @@ module['exports'] = Jassa;
         // Assume an uri in prefix notation
         throw 'Not implemented';
       }
-      return result;  //		    if(c == '<') { //uri
-                      //		        
-                      //		    }
-                      //            else if(c == '"') {
-                      //                
-                      //            }
-                      //		    else if(c == '_') { // blank node
-                      //		        
-                      //		    }
+      return result;
     }
   };
   // Convenience methods
@@ -10893,32 +10934,32 @@ module['exports'] = Jassa;
   };
   ns.Triple = Class.create({
     classLabel: 'jassa.rdf.Triple',
-    initialize: function (s, p, o) {
-      this.s = s;
-      this.p = p;
-      this.o = o;
+    initialize: function (subject, predicate, object) {
+      this.subject = subject;
+      this.predicate = predicate;
+      this.object = object;
     },
     toString: function () {
-      return this.s + ' ' + this.p + ' ' + this.o;
+      return this.subject + ' ' + this.predicate + ' ' + this.object;
     },
     copySubstitute: function (fnNodeMap) {
-      var result = new ns.Triple(ns.getSubstitute(this.s, fnNodeMap), ns.getSubstitute(this.p, fnNodeMap), ns.getSubstitute(this.o, fnNodeMap));
-      return result;  //	this.s.copySubstitute(fnNodeMap), this.p.copySubstitute(fnNodeMap), this.o.copySubstitute(fnNodeMap));
+      var result = new ns.Triple(ns.getSubstitute(this.subject, fnNodeMap), ns.getSubstitute(this.predicate, fnNodeMap), ns.getSubstitute(this.object, fnNodeMap));
+      return result;
     },
     getSubject: function () {
-      return this.s;
+      return this.subject;
     },
-    getProperty: function () {
-      return this.p;
+    getPredicate: function () {
+      return this.predicate;
     },
     getObject: function () {
-      return this.o;
+      return this.object;
     },
     getVarsMentioned: function () {
       var result = [];
-      ns.Triple.pushVar(result, this.s);
-      ns.Triple.pushVar(result, this.p);
-      ns.Triple.pushVar(result, this.o);
+      ns.Triple.pushVar(result, this.subject);
+      ns.Triple.pushVar(result, this.predicate);
+      ns.Triple.pushVar(result, this.object);
       return result;
     }
   });
@@ -10929,7 +10970,7 @@ module['exports'] = Jassa;
         });
       if (!c) {
         array.push(node);
-      }  //_(array).union(node);
+      }
     }
     return array;
   };
@@ -11131,14 +11172,13 @@ module['exports'] = Jassa;
       var prefix = this.getNsPrefixURI(uri);
       var result;
       if (prefix) {
-        var u = this.prefixes[u];
+        var u = this.prefixes[uri];
         var qname = uri.substring(u.length);
         result = prefix + ':' + qname;
       } else {
         result = uri;
       }
-      return resul;
-      t;
+      return result;
     },
     addPrefix: function (prefix, urlBase) {
       this.prefixes[prefix] = urlBase;
@@ -11246,15 +11286,23 @@ module['exports'] = Jassa;
       return false;
     },
     getFunction: function () {
+      console.log('Override me');
       throw 'Override me';
     },
     getExprVar: function () {
+      console.log('Override me');
       throw 'Override me';
     },
     getConstant: function () {
+      console.log('Override me');
       throw 'Override me';
     },
     copySubstitute: function (fnNodeMap) {
+      console.log('Override me');
+      throw 'Override me';
+    },
+    copy: function (newArgs) {
+      console.log('Override me');
       throw 'Override me';
     }
   });
@@ -11272,7 +11320,7 @@ module['exports'] = Jassa;
       } else if (node.isVariable()) {
         result = new ns.ExprVar(node);
       } else {
-        result = sparql.NodeValue.makeNode(node);
+        result = ns.NodeValue.makeNode(node);
       }
       //var result = (n == null) ? this : //node;//rdf.NodeValue.makeNode(node); 
       return result;  //return new ns.ExprVar(this.v.copySubstitute(fnNodeMap));
@@ -11305,6 +11353,10 @@ module['exports'] = Jassa;
     }
   });
   ns.ExprFunction = Class.create(ns.Expr, {
+    getName: function () {
+      console.log('Implement me');
+      throw 'Implement me';
+    },
     isFunction: function () {
       return true;
     },
@@ -11312,7 +11364,32 @@ module['exports'] = Jassa;
       return this;
     }
   });
-  ns.ExprFunction0 = Class.create(ns.ExprFunction, {
+  ns.ExprFunctionBase = Class.create(ns.ExprFunction, {
+    initialize: function (name) {
+      this.name = name;
+    },
+    copySubstitute: function (fnNodeMap) {
+      var args = this.getArgs();
+      var newArgs = _(args).map(function (arg) {
+          var r = arg.copySubstitute(fnNodeMap);
+          return r;
+        });
+      var result = this.copy(newArgs);
+      return result;
+    },
+    getVarsMentioned: function () {
+      var result = ns.PatternUtils.getVarsMentioned(this.getArgs());
+      return result;
+    },
+    toString: function () {
+      var result = this.name + '(' + this.getArgs().join(', ') + ')';
+      return result;
+    }
+  });
+  ns.ExprFunction0 = Class.create(ns.ExprFunctionBase, {
+    initialize: function ($super, name) {
+      $super(name);
+    },
     getArgs: function () {
       return [];
     },
@@ -11324,8 +11401,9 @@ module['exports'] = Jassa;
       return result;
     }
   });
-  ns.ExprFunction1 = Class.create(ns.ExprFunction, {
-    initialize: function (subExpr) {
+  ns.ExprFunction1 = Class.create(ns.ExprFunctionBase, {
+    initialize: function ($super, name, subExpr) {
+      $super(name);
       this.subExpr = subExpr;
     },
     getArgs: function () {
@@ -11342,8 +11420,9 @@ module['exports'] = Jassa;
       return this.subExpr;
     }
   });
-  ns.ExprFunction2 = Class.create(ns.ExprFunction, {
-    initialize: function (left, right) {
+  ns.ExprFunction2 = Class.create(ns.ExprFunctionBase, {
+    initialize: function ($super, name, left, right) {
+      $super(name);
       this.left = left;
       this.right = right;
     },
@@ -11365,12 +11444,84 @@ module['exports'] = Jassa;
     },
     getRight: function () {
       return this.right;
-    },
-    getVarsMentioned: function () {
-      var result = ns.PatternUtils.getVarsMentioned(this.getArgs());
-      return result;
     }
   });
+  ns.ExprFunctionN = Class.create(ns.ExprFunctionBase, {
+    initialize: function ($super, name, args) {
+      $super(name);
+      this.args = args;
+    },
+    getArgs: function () {
+      return this.args;
+    }  //        copy: function(args) {
+       ////            if(args.length != 1) {
+       ////                throw 'Invalid argument';
+       ////            }
+       //            
+       //            var result = this.$copy(args);
+       //            return result;
+       //        }
+  });
+  ns.E_Function = Class.create(ns.ExprFunctionN, {
+    initialize: function ($super, name, args) {
+      $super(name, args);
+    },
+    copy: function (newArgs) {
+      var result = new ns.E_Function(this.name, newArgs);
+      return result;
+    }  /*	    
+        copySubstitute: function(fnNodeMap) {
+            var newArgs = _(this.args).map(function(arg) {
+                var r = arg.copySubstitute(fnNodeMap);
+                return r;
+            });
+            
+            return new ns.E_Function(this.functionIri, newArgs);
+        },
+*/
+  });
+  /*
+    ns.E_Function = Class.create(ns.Expr, {
+        initialize: function(functionIri, args) {
+            this.functionIri = functionIri;
+            this.args = args;
+        },
+    
+        copySubstitute: function(fnNodeMap) {
+            var newArgs = _(this.args).map(function(arg) {
+                var r = arg.copySubstitute(fnNodeMap);
+                return r;
+            });
+            
+            return new ns.E_Function(this.functionIri, newArgs);
+        },
+    
+        getArgs: function() {
+            return this.args;
+        },
+    
+        copy: function(newArgs) {
+            return new ns.E_Function(this.functionIri, newArgs);
+        },
+    
+        toString: function() {
+            var argStr = this.args.join(", ");
+            
+            // TODO HACK for virtuoso and other cases
+            // If the functionIri contains a ':', we assume its a compact iri
+            var iri = '' + this.functionIri;
+            var fnName = (iri.indexOf(':') < 0) ? '<' + iri + '>' : iri;  
+            
+            var result = fnName + '(' + argStr + ')';
+            return result;
+        },
+        
+        getVarsMentioned: function() {
+            var result = ns.PatternUtils.getVarsMentioned(this.getArgs());
+            return result;
+        }
+    });
+    */
   // TODO Change to ExprFunction1
   ns.E_OneOf = Class.create(ns.Expr, {
     initialize: function (lhsExpr, nodes) {
@@ -11398,10 +11549,25 @@ module['exports'] = Jassa;
       }
     }
   });
+  ns.E_NotExists = Class.create(ns.ExprFunction0, {
+    initialize: function ($super, element) {
+      $super('jassa.sparql.E_NotExists');
+      this.element = element;
+    },
+    getVarsMentioned: function () {
+      return this.element.getVarsMentioned();
+    },
+    $copy: function () {
+      return new ns.E_NotExists(this.element);
+    },
+    toString: function () {
+      return 'Not Exists (' + this.element + ') ';
+    }
+  });
   //ns.E_In = ns.E_OneOf
   ns.E_Str = Class.create(ns.ExprFunction1, {
-    copySubstitute: function (fnNodeMap) {
-      return new ns.E_Str(this.subExpr.copySubstitute(fnNodeMap));
+    initialize: function ($super, subExpr) {
+      $super('str', subExpr);
     },
     getVarsMentioned: function () {
       return this.subExpr.getVarsMentioned();
@@ -11457,7 +11623,7 @@ module['exports'] = Jassa;
       return [this.expr];
     },
     copy: function (args) {
-      var result = newUnaryExpr(ns.E_Like, args);
+      var result = ns.newUnaryExpr(ns.E_Like, args);
       return result;
     },
     toString: function () {
@@ -11465,41 +11631,9 @@ module['exports'] = Jassa;
       return '(' + this.expr + ' Like \'' + patternStr + '\')';
     }
   };
-  ns.E_Function = Class.create(ns.Expr, {
-    initialize: function (functionIri, args) {
-      this.functionIri = functionIri;
-      this.args = args;
-    },
-    copySubstitute: function (fnNodeMap) {
-      var newArgs = _(this.args).map(function (arg) {
-          var r = arg.copySubstitute(fnNodeMap);
-          return r;
-        });
-      return new ns.E_Function(this.functionIri, newArgs);
-    },
-    getArgs: function () {
-      return this.args;
-    },
-    copy: function (newArgs) {
-      return new ns.E_Function(this.functionIri, newArgs);
-    },
-    toString: function () {
-      var argStr = this.args.join(', ');
-      // TODO HACK for virtuoso and other cases
-      // If the functionIri contains a ':', we assume its a compact iri
-      var iri = '' + this.functionIri;
-      var fnName = iri.indexOf(':') < 0 ? '<' + iri + '>' : iri;
-      var result = fnName + '(' + argStr + ')';
-      return result;
-    },
-    getVarsMentioned: function () {
-      var result = ns.PatternUtils.getVarsMentioned(this.getArgs());
-      return result;
-    }
-  });
   ns.E_Equals = Class.create(ns.ExprFunction2, {
     initialize: function ($super, left, right) {
-      $super(left, right);
+      $super('=', left, right);
     },
     copySubstitute: function (fnNodeMap) {
       //		    if(!this.right.copySubstitute) {
@@ -11552,7 +11686,7 @@ module['exports'] = Jassa;
       return [this.expr];
     },
     copy: function (args) {
-      var result = newUnaryExpr(ns.E_Lang, args);
+      var result = ns.newUnaryExpr(ns.E_Lang, args);
       return result;
     },
     toString: function () {
@@ -11573,7 +11707,7 @@ module['exports'] = Jassa;
       return [this.expr];
     },
     copy: function (args) {
-      var result = newUnaryExpr(ns.E_Bound, args);
+      var result = ns.newUnaryExpr(ns.E_Bound, args);
       return result;
     },
     toString: function () {
@@ -11582,7 +11716,7 @@ module['exports'] = Jassa;
   };
   ns.E_GreaterThan = Class.create(ns.ExprFunction2, {
     initialize: function ($super, left, right) {
-      $super(left, right);
+      $super('>', left, right);
     },
     copySubstitute: function (fnNodeMap) {
       return new ns.E_GreaterThan(this.left.copySubstitute(fnNodeMap), this.right.copySubstitute(fnNodeMap));
@@ -11596,7 +11730,7 @@ module['exports'] = Jassa;
   });
   ns.E_LessThan = Class.create(ns.ExprFunction2, {
     initialize: function ($super, left, right) {
-      $super(left, right);
+      $super('<', left, right);
     },
     copySubstitute: function (fnNodeMap) {
       return new ns.E_LessThan(this.left.copySubstitute(fnNodeMap), this.right.copySubstitute(fnNodeMap));
@@ -11610,7 +11744,7 @@ module['exports'] = Jassa;
   });
   ns.E_LogicalAnd = Class.create(ns.ExprFunction2, {
     initialize: function ($super, left, right) {
-      $super(left, right);
+      $super('&&', left, right);
     },
     copySubstitute: function (fnNodeMap) {
       // return new ns.E_LogicalAnd(fnNodeMap(this.left), fnNodeMap(this.right));
@@ -11625,7 +11759,7 @@ module['exports'] = Jassa;
   });
   ns.E_LogicalOr = Class.create(ns.ExprFunction2, {
     initialize: function ($super, left, right) {
-      $super(left, right);
+      $super('||', left, right);
     },
     copySubstitute: function (fnNodeMap) {
       return new ns.E_LogicalOr(this.left.copySubstitute(fnNodeMap), this.right.copySubstitute(fnNodeMap));
@@ -11788,7 +11922,7 @@ module['exports'] = Jassa;
       if (node.isLiteral()) {
         if (node.getLiteralDatatypeUri() === xsd.xstring.getUri()) {
           result = '"' + node.getLiteralLexicalForm() + '"';
-        } else if (node.datatype === xsd.xdouble.value) {
+        } else if (node.dataType === xsd.xdouble.value) {
           // TODO This is a hack - why is it here???
           return parseFloat(this.node.value);
         }
@@ -11950,7 +12084,7 @@ module['exports'] = Jassa;
     return node.language ? '@' + node.language : '';
   };
   ns.datatypeFragment = function (node) {
-    return node.datatype ? '^^<' + node.datatype + '>' : '';
+    return node.dataType ? '^^<' + node.dataType + '>' : '';
   };
 }());
 /*
@@ -12224,7 +12358,7 @@ module['exports'] = Jassa;
 		for(var i = 0; i < bindings.length; ++i) {
 
 			var binding = bindings[i];
-			
+
 			var newBinding = {};
 			
 			$.each(binding, function(varName, node) {
@@ -12361,7 +12495,7 @@ module['exports'] = Jassa;
         throw 'Invalid argument';
       }
       // FIXME: Should we clone the attributes too?
-      var result = new ns.ElementSubQuery(query);
+      var result = new ns.ElementSubQuery(this.query);
       return result;
     },
     toString: function () {
@@ -12375,6 +12509,37 @@ module['exports'] = Jassa;
     },
     getVarsMentioned: function () {
       return this.query.getVarsMentioned();
+    }
+  });
+  ns.ElementBind = Class.create(ns.Element, {
+    classLabel: 'jassa.sparql.ElementBind',
+    initialize: function (variable, expression) {
+      this.expr = expression;
+      this.variable = variable;
+    },
+    getArgs: function () {
+      return [];
+    },
+    getExpr: function () {
+      return this.expr;
+    },
+    getVar: function () {
+      return this.variable;
+    },
+    getVarsMentioned: function () {
+      return _(this.expr.getVarsMentioned()).union(this.variable);
+    },
+    copy: function () {
+      return new ns.ElementBind(this.variable, this.expr);
+    },
+    copySubstitute: function (fnNodeMap) {
+      return new ns.ElementBind(rdf.getSubstitute(this.variable, fnNodeMap), this.expr.copySubstitute(fnNodeMap));
+    },
+    flatten: function () {
+      return this;
+    },
+    toString: function () {
+      return 'bind(' + this.expr + ' as ' + this.variable + ')';
     }
   });
   ns.ElementFilter = Class.create(ns.Element, {
@@ -12394,7 +12559,7 @@ module['exports'] = Jassa;
         throw 'Invalid argument';
       }
       // 	FIXME: Should we clone the attributes too?
-      var result = new ns.ElemenFilter(this.expr);
+      var result = new ns.ElementFilter(this.expr);
       return result;
     },
     copySubstitute: function (fnNodeMap) {
@@ -12533,6 +12698,9 @@ module['exports'] = Jassa;
     classLabel: 'jassa.sparql.ElementGroup',
     initialize: function (elements) {
       this.elements = elements ? elements : [];
+    },
+    addElement: function (element) {
+      this.elements.push(element);
     },
     getArgs: function () {
       return this.elements;
@@ -12766,7 +12934,6 @@ module['exports'] = Jassa;
         } else {
           arr.push('' + v);
         }
-        ;
       }
       var result = arr.join(' ');
       return result;
@@ -12824,7 +12991,7 @@ module['exports'] = Jassa;
       return this.resultStar;
     },
     setResultStar: function (enable) {
-      this.resultStar = enable === true ? true : false;
+      this.resultStar = enable === true;
     },
     getQueryPattern: function () {
       return this.elements[0];
@@ -12857,12 +13024,6 @@ module['exports'] = Jassa;
     },
     getOffset: function () {
       return this.offset;
-    },
-    setLimit: function (limit) {
-      this.limit = limit;
-    },
-    setOffset: function (offset) {
-      this.offset = offset;
     },
     toStringOrderBy: function () {
       var result = this.orderBy && this.orderBy.length > 0 ? 'Order By ' + this.orderBy.join(' ') + ' ' : '';
@@ -12962,13 +13123,13 @@ module['exports'] = Jassa;
       return this.distinct;
     },
     setDistinct: function (enable) {
-      this.distinct = enable === true ? true : false;
+      this.distinct = enable === true;
     },
     isReduced: function () {
       return this.reduced;
     },
     setReduced: function (enable) {
-      this.reduced = enable === true ? true : false;
+      this.reduced = enable === true;
     },
     toString: function () {
       switch (this.type) {
@@ -13032,7 +13193,6 @@ module['exports'] = Jassa;
         } else {
           next.push(a);
         }
-        ;
       }
       open = next;
     }
@@ -13086,7 +13246,7 @@ module['exports'] = Jassa;
       }
       var excludeVarNames = this.getVarNames(excludeVars);
       var generator = ns.GenSym.create(prefix);
-      var genVarName = new sparql.GeneratorBlacklist(generator, excludeVarNames);
+      var genVarName = new ns.GeneratorBlacklist(generator, excludeVarNames);
       var result = new ns.VarGenerator(genVarName);
       return result;
     }
@@ -13208,7 +13368,7 @@ module['exports'] = Jassa;
         }).filter(function (x) {
           return x != null;
         }).value();
-      var result = new sparql.ElementGroup(elements);
+      var result = new ns.ElementGroup(elements);
       // Simplify the element
       if (this.simplify) {
         result = result.flatten();
@@ -13300,14 +13460,14 @@ module['exports'] = Jassa;
       var joinNode = rootJoinNode.joinAny(this.joinType, joinVarsA, elementB, joinVarsB);
       var joinBuilder = joinNode.getJoinBuilder();
       var elements = joinBuilder.getElements();
-      var result = new sparql.ElementGroup(elements);
+      var result = new ns.ElementGroup(elements);
       return result;
     }
   });
   ns.ElementUtils = {
     createFilterElements: function (exprs) {
       var result = _(exprs).map(function (expr) {
-          var r = new sparql.ElementFilter(expr);
+          var r = new ns.ElementFilter(expr);
           return r;
         });
       return result;
@@ -13315,39 +13475,51 @@ module['exports'] = Jassa;
     createElementsTriplesBlock: function (triples) {
       var result = [];
       if (triples.length > 0) {
-        var element = new sparql.ElementTriplesBlock(triples);
+        var element = new ns.ElementTriplesBlock(triples);
         result.push(element);
       }
       return result;
     },
     flatten: function (elements) {
-      var result = _.map(elements, function (element) {
-          return element.flatten();
+      var result = _(elements).map(function (element) {
+          var r = element.flatten();
+          return r;
         });
       return result;
     },
     flattenElements: function (elements) {
       var result = [];
-      var triples = [];
+      // Flatten out ElementGroups by 1 level; collect filters
       var tmps = [];
-      _.each(elements, function (item) {
+      _(elements).each(function (item) {
         if (item instanceof ns.ElementGroup) {
           tmps.push.apply(tmps, item.elements);
         } else {
           tmps.push(item);
         }
       });
-      _.each(tmps, function (item) {
+      var triples = [];
+      var filters = [];
+      var rest = [];
+      // Collect the triple blocks
+      _(tmps).each(function (item) {
         if (item instanceof ns.ElementTriplesBlock) {
           triples.push.apply(triples, item.getTriples());
+        } else if (item instanceof ns.ElementFilter) {
+          filters.push(item);
         } else {
-          result.push(item);
+          rest.push(item);
         }
       });
       if (triples.length > 0) {
         var ts = ns.uniqTriples(triples);
-        result.unshift(new ns.ElementTriplesBlock(ts));
+        result.push(new ns.ElementTriplesBlock(ts));
       }
+      result.push.apply(result, rest);
+      var uniqFilters = _(filters).uniq(false, function (x) {
+          return '' + x;
+        });
+      result.push.apply(result, uniqFilters);
       //console.log("INPUT ", elements);
       //console.log("OUTPUT ", result);
       return result;
@@ -13362,6 +13534,7 @@ module['exports'] = Jassa;
         generator = new ns.GeneratorBlacklist(g, vans);
       }
       // Rename all variables that are in common
+      // FIXME: fnNodeEquals is not defined (commented out in sponate-utils.js as of 2014-06-05)
       var result = new util.HashBidiMap(ns.fnNodeEquals);
       //var rename = {};
       _(vbs).each(function (oldVar) {
@@ -13403,7 +13576,56 @@ module['exports'] = Jassa;
       //debugger;
       var newElement = element.copySubstitute(fnSubst);
       return newElement;
-    }
+    }  /**
+		 * Rename all variables in b that appear in the array of variables vas.
+		 * 
+		 * 
+		 */
+       //		makeElementDistinct: function(b, vas) {
+       //			//var vas = a.getVarsMentioned();
+       //			var vbs = b.getVarsMentioned();
+       //
+       //			var vans = vas.map(ns.fnGetVarName);
+       //			var vbns = vbs.map(ns.fnGetVarName);
+       //			
+       //			// Get the var names that are in common
+       //			var vcns = _(vans).intersection(vbns);
+       //			
+       //			var g = new ns.GenSym('v');
+       //			var gen = new ns.GeneratorBlacklist(g, vans);
+       //
+       //			// Rename all variables that are in common
+       //			var rename = new col.HashBidiMap(ns.fnNodeEquals);
+       //			//var rename = {};
+       //
+       //			_(vcns).each(function(vcn) {
+       //				var newName = gen.next();
+       //				var newVar = ns.Node.v(newName);
+       //				//rename[vcn] = newVar;
+       //				
+       //				// TODO Somehow re-use existing var objects... 
+       //				var oldVar = ns.Node.v(vcn);
+       //				
+       //				rename.put(oldVar, newVar);
+       //			});
+       //			
+       //			console.log('Common vars: ' + vcns + ' rename: ' + JSON.stringify(rename.getMap()));
+       //			
+       //			var fnSubst = function(v) {
+       //				var result = rename.get(v);//[v.getName()];
+       //				return result;
+       //			};
+       //			
+       //			//debugger;
+       //			var newElement = b.copySubstitute(fnSubst);
+       //			
+       //			var result = {
+       //				map: rename,
+       //				element: newElement
+       //			};
+       //			
+       //			return result;
+       //		}
   };
   ns.ExprUtils = {
     copySubstitute: function (expr, binding) {
@@ -13430,11 +13652,11 @@ module['exports'] = Jassa;
         vars = binding.getVars();
       }
       var result = _(vars).each(function (v) {
-          var exprVar = new sparql.ExprVar(v);
+          var exprVar = new ns.ExprVar(v);
           var node = binding.get(v);
           // TODO What if node is NULL?
-          var nodeValue = sparql.NodeValue.makeNode(node);
-          var expr = new sparql.E_Equal(exprVar, nodeValue);
+          var nodeValue = ns.NodeValue.makeNode(node);
+          var expr = new ns.E_Equals(exprVar, nodeValue);
           return expr;
         });
       return result;
@@ -13457,7 +13679,7 @@ module['exports'] = Jassa;
     initialize: function (joinBuilder, alias, targetJoinVars) {
       this.joinBuilder = joinBuilder;
       this.alias = alias;
-      this.targetJoinVars;
+      this.targetJoinVars = targetJoinVars;
     },
     getJoinBuilder: function () {
       return this.joinBuilder;
@@ -13636,7 +13858,7 @@ module['exports'] = Jassa;
         });
       //var sourceVars = this.ge; // Based on renaming!
       //var oldTargetVars = targetElement.getVarsMentioned();
-      var targetVarMap = ns.ElementUtils.createJoinVarMap(this.usedVars, oldTargetVars, sjv, targetJoinVars, this.varGenerator);
+      var targetVarMap = ns.ElementUtils.createJoinVarMap(this.usedVars, oldTargetVars, sjv, targetJoinVars, this.varNameGenerator);
       var newTargetElement = null;
       if (targetElement != null) {
         newTargetElement = ns.ElementUtils.createRenamedElement(targetElement, targetVarMap);
@@ -13703,7 +13925,6 @@ module['exports'] = Jassa;
     getElements: function () {
       var rootNode = this.getRootNode();
       var result = this.getElementsRec(rootNode);
-      return result;
       //var result = [];
       /*
             var rootNode = this.getRootNode();
@@ -13727,6 +13948,7 @@ module['exports'] = Jassa;
   });
   ns.JoinBuilderUtils = {
     getChildren: function (node) {
+      // FIXME: getJoinNodes not defined
       return node.getJoinNodes();
     }
   };
@@ -13743,6 +13965,7 @@ module['exports'] = Jassa;
      * 
      */
   ns.JoinBuilderElement.createWithEmptyRoot = function (varNames, rootAlias) {
+    // FIXME: varNamesToNodes not defined
     var vars = sparql.VarUtils.varNamesToNodes(varNames);
     var joinBuilder = new ns.JoinBuilderElement(null, vars, rootAlias);
     var result = joinBuilder.getRootNode();
@@ -13981,6 +14204,7 @@ module['exports'] = Jassa;
       this.keyToCache = new Cache();
     },
     createQueryCache: function (sparqlService, query, indexExpr) {
+      // FIXME: SparqlService.getServiceState() not defined
       var key = 'cache:/' + sparqlService.getServiceId() + '/' + sparqlService.getServiceState() + '/' + query + '/' + indexExpr;
       console.log('cache requested with id: ' + key);
       var cache = this.keyToCache.getItem(key);
@@ -13991,6 +14215,24 @@ module['exports'] = Jassa;
       return cache;
     }
   });
+  /*
+	ns.SparqlLookpServiceCache = Class.create({
+	    initialize: function(sparqlLookupService, cache) {
+	        this.sparqlLookupService = sparqlLookupService;
+	        
+	        this.cache = cache || new Cache();
+	    },
+	    
+	    lookup: function(nodes) {
+	        // Make nodes unique
+	        var uniq = _(nodes).uniq(); // TODO equality
+	        
+	        
+	        
+	        
+	    }
+	})
+	*/
   ns.QueryCacheBindingHashSingle = Class.create({
     initialize: function (sparqlService, query, indexExpr) {
       this.sparqlService = sparqlService;
@@ -14434,11 +14676,22 @@ module['exports'] = Jassa;
     hashCode: function () {
       return 'virtfix:' + this.sparqlService.hashCode();
     },
+    hasAggregate: function (query) {
+      var entries = query.getProject().entries();
+      var result = _(entries).some(function (entry) {
+          var expr = entry.expr;
+          if (expr instanceof sparql.E_Count) {
+            return true;
+          }
+        });
+      return result;
+    },
     createQueryExecution: function (query) {
       var orderBy = query.getOrderBy();
       var limit = query.getLimit();
       var offset = query.getOffset();
-      var isTransformNeeded = orderBy.length > 0 && (limit || offset);
+      var hasAggregate = this.hasAggregate(query);
+      var isTransformNeeded = orderBy.length > 0 && (limit || offset) || hasAggregate;
       var q;
       if (isTransformNeeded) {
         var subQuery = query.clone();
@@ -14467,11 +14720,59 @@ module['exports'] = Jassa;
   // Great! Writing to the object in a deferred done handler causes js to freeze...
   //ns.globalSparqlCache = {};
   ns.ServiceUtils = {
+    constrainQueryVar: function (query, v, nodes) {
+      var exprVar = new sparql.ExprVar(v);
+      var result = this.constrainQueryExprVar(query, exprVar, nodes);
+      return result;
+    },
+    constrainQueryExprVar: function (query, exprVar, nodes) {
+      var result = query.clone();
+      var e = new sparql.ElementFilter(new sparql.E_OneOf(exprVar, nodes));
+      result.getElements().push(e);
+      return result;
+    },
+    chunkQuery: function (query, v, nodes, maxChunkSize) {
+      var chunks = util.ArrayUtils.chunk(nodes, maxChunkSize);
+      var exprVar = new sparql.ExprVar(v);
+      var self = this;
+      var result = _(chunks).map(function (chunk) {
+          var r = self.constrainQueryExprVar(query, exprVar, nodes);
+          return r;
+        });
+      return result;
+    },
+    mergeResultSets: function (arrayOfResultSets) {
+      var bindings = [];
+      var varNames = [];
+      _(arrayOfResultSets).each(function (rs) {
+        var vns = rs.getVarNames();
+        varNames = _(varNames).union(vns);
+        var arr = rs.getIterator().getArray();
+        bindings.push.apply(bindings, arr);
+      });
+      var itBinding = new util.IteratorArray(bindings);
+      var result = new ns.ResultSetArrayIteratorBinding(itBinding, varNames);
+      return result;
+    },
+    execSelectForNodes: function (sparqlService, query, v, nodes, maxChunkSize) {
+      var queries = this.chunkQuery(query, v, nodes, maxChunkSize);
+      var promises = _(queries).map(function (query) {
+          var qe = sparqlService.createQueryExecution(query);
+          var r = qe.execSelect();
+          return r;
+        });
+      var masterTask = jQuery.when.apply(window, promises);
+      var self = this;
+      var result = masterTask.pipe(function () {
+          var r = self.mergeResultSets(arguments);
+          return r;
+        });
+      return result;
+    },
     consumeResultSet: function (rs) {
       while (rs.hasNext()) {
         rs.nextBinding();
       }
-      ;
     },
     resultSetToList: function (rs, variable) {
       var result = [];
@@ -14508,6 +14809,28 @@ module['exports'] = Jassa;
         });
       return result;
     },
+    fetchCountConcept: function (sparqlService, concept, threshold) {
+      var outputVar = facete.ConceptUtils.createNewVar(concept);
+      var scanLimit = threshold == null ? null : threshold + 1;
+      var countQuery = facete.ConceptUtils.createQueryCount(concept, outputVar, scanLimit);
+      //var result = ns.ServiceUtils.fetchCountQuery(sparqlService, query, outputVar);
+      var qe = sparqlService.createQueryExecution(countQuery);
+      //            qe.setTimeout(firstTimeoutInMs);
+      var deferred = jQuery.Deferred();
+      var p1 = ns.ServiceUtils.fetchInt(qe, outputVar);
+      p1.done(function (count) {
+        var hasMoreItems = count > threshold;
+        var r = {
+            count: hasMoreItems ? threshold : count,
+            limit: threshold,
+            hasMoreItems: hasMoreItems
+          };
+        deferred.resolve(r);
+      }).fail(function () {
+        deferred.fail();
+      });
+      return deferred.promise();
+    },
     fetchCountQuery: function (sparqlService, query, firstTimeoutInMs, limit) {
       var elements = [new sparql.ElementSubQuery(query)];
       var varsMentioned = query.getVarsMentioned();
@@ -14528,14 +14851,14 @@ module['exports'] = Jassa;
         });
       }).fail(function () {
         // Try counting with the fallback size
-        var countQuery = facete.QueryUtils.createQueryCount(elements, limit, null, outputVar, null, null, null);
+        var countQuery = facete.QueryUtils.createQueryCount(elements, limit + 1, null, outputVar, null, null, null);
         var qe = sparqlService.createQueryExecution(countQuery);
         var p2 = ns.ServiceUtils.fetchInt(qe, outputVar);
         p2.done(function (count) {
           deferred.resolve({
             count: count,
             limit: limit,
-            hasMoreItems: count >= limit
+            hasMoreItems: count > limit
           });
         }).fail(function () {
           deferred.fail();
@@ -14586,6 +14909,7 @@ module['exports'] = Jassa;
   });
   ns.BufferSet = Class.create(ns.Buffer, {
     initialize: function (maxItemCount) {
+      // FIXME: util.SetList not defined
       this.data = new util.SetList();
       this.maxItemCount = maxItemCount;
     },
@@ -14633,6 +14957,7 @@ module['exports'] = Jassa;
           exprsKey: exprsKey
         });
       }
+      // FIXME: expr not defined
       var elementFilter = new sparql.ElementFilter(expr);
       //            var filteredElement = new sparql.ElementGroup([
       //                this.element,
@@ -14657,10 +14982,12 @@ module['exports'] = Jassa;
       var maxBufferSize = 20;
       var buffer = [];
       // Fill the buffer
+      // FIXME: rsA not defined
       while (rsA.hasNext()) {
       }
       // If either the buffer is full or there are no more bindings in rsa,
       // Execute the join
+      // FIXME: rsa not defined
       if (buffer.isFull() || !rsa.hasNext()) {
       }
     }
@@ -14728,60 +15055,48 @@ module['exports'] = Jassa;
   var util = Jassa.util;
   var sparql = Jassa.sparql;
   var ns = Jassa.service;
-  // TODO Move to some other place
-  ns.createNgGridOptionsFromQuery = function (query) {
-    if (!query) {
-      return [];
-    }
-    var projectVarList = query.getProjectVars();
-    //query.getProjectVars().getVarList();
-    var projectVarNameList = sparql.VarUtils.getVarNames(projectVarList);
-    var result = _(projectVarNameList).map(function (varName) {
-        var col = {
-            field: varName,
-            displayName: varName
-          };
-        return col;
+  ns.TableServiceUtils = {
+    bindingToJsMap: function (varList, binding) {
+      var result = {};
+      _(varList).each(function (v) {
+        var varName = v.getName();
+        //result[varName] = '' + binding.get(v);
+        result[varName] = binding.get(v);
       });
-    return result;
-  };
-  ns.bindingToJson = function (varList, binding) {
-    var result = {};
-    _(varList).each(function (v) {
-      var varName = v.getName();
-      result[varName] = '' + binding.get(v);
-    });
-    return result;
-  };
-  ns.SparqlTableService = Class.create({
-    initialize: function (sparqlService, query, timeoutInMillis, secondaryCountLimit) {
-      this.sparqlService = sparqlService;
-      this.query = query;
-      this.timeoutInMillis = timeoutInMillis || 3000;
-      this.secondaryCountLimit = secondaryCountLimit || 1000;
-    },
-    fetchCount: function () {
-      if (!this.query) {
-        var deferred = jQuery.Deferred();
-        deferred.resolve(0);
-        return deferred.promise();
-      }
-      var query = this.query.clone();
-      query.setLimit(null);
-      query.setOffset(null);
-      var result = ns.ServiceUtils.fetchCountQuery(this.sparqlService, this.query, this.timeoutInMillis, this.secondaryCountLimit);
-      /*
-            var countVar = rdf.NodeFactory.createVar('_c_');
-            var countQuery = createQueryCountQuery(query, countVar);
-            var countQe = this.sparqlService.createQueryExecution(countQuery);
-            var promise = service.ServiceUtils.fetchInt(countQe, countVar);
-*/
-      //console.log('Count Query: ' + countQuery);
-      //return promise;
       return result;
     },
-    fetchData: function (limit, offset) {
-      if (!this.query) {
+    createNgGridOptionsFromQuery: function (query) {
+      if (!query) {
+        return [];
+      }
+      var projectVarList = query.getProjectVars();
+      //query.getProjectVars().getVarList();
+      var projectVarNameList = sparql.VarUtils.getVarNames(projectVarList);
+      var result = _(projectVarNameList).map(function (varName) {
+          var col = {
+              field: varName,
+              displayName: varName
+            };
+          return col;
+        });
+      return result;
+    },
+    fetchCount: function (sparqlService, query, timeoutInMillis, secondaryCountLimit) {
+      var result;
+      if (!sparqlService || !query) {
+        var deferred = jQuery.Deferred();
+        deferred.resolve(0);
+        result = deferred.promise();
+      } else {
+        query = query.clone();
+        query.setLimit(null);
+        query.setOffset(null);
+        result = ns.ServiceUtils.fetchCountQuery(sparqlService, query, timeoutInMillis, secondaryCountLimit);
+      }
+      return result;
+    },
+    fetchData: function (sparqlService, query, limit, offset) {
+      if (!sparqlService || !query) {
         var deferred = jQuery.Deferred();
         var itBinding = new util.IteratorArray([]);
         var varNames = [];
@@ -14789,29 +15104,1155 @@ module['exports'] = Jassa;
         deferred.resolve(rs);
         return deferred.promise();
       }
-      var query = this.query.clone();
+      // Clone the query as to not modify the original object
+      query = query.clone();
       query.setLimit(limit);
       query.setOffset(offset);
-      var qe = this.sparqlService.createQueryExecution(query);
+      var qe = sparqlService.createQueryExecution(query);
       var result = qe.execSelect().pipe(function (rs) {
           var data = [];
           var projectVarList = query.getProjectVars();
           //query.getProjectVars().getVarList();
           while (rs.hasNext()) {
             var binding = rs.next();
-            var o = ns.bindingToJson(projectVarList, binding);
+            var o = ns.TableServiceUtils.bindingToJsMap(projectVarList, binding);
             data.push(o);
           }
           return data;
         });
       return result;
     },
-    getSchema: function () {
-      var query = this.query;
-      //var projectVarList = query.getProjectVars(); //query.getProjectVars().getVarList();
-      //var projectVarNameList = sparql.VarUtils.getVarNames(projectVarList);
-      var colDefs = ns.createNgGridOptionsFromQuery(query);
-      return colDefs;
+    collectNodes: function (rows) {
+      // Collect nodes
+      var result = [];
+      _(rows).each(function (item, k) {
+        _(item).each(function (node) {
+          result.push(node);
+        });
+      });
+      _(result).uniq(false, function (x) {
+        return '' + x;
+      });
+      return result;
+    },
+    fetchSchemaTableConfigFacet: function (tableConfigFacet, lookupServicePathLabels) {
+      var paths = tableConfigFacet.getPaths().getArray();
+      // We need to fetch the column headings
+      var promise = lookupServicePathLabels.lookup(paths);
+      var result = promise.pipe(function (map) {
+          var colDefs = _(paths).map(function (path) {
+              var r = {
+                  field: tableConfigFacet.getColumnId(path),
+                  displayName: map.get(path),
+                  path: path
+                };
+              return r;
+            });
+          var r = { colDefs: colDefs };
+          return r;
+        });
+      return result;
+    },
+    transformToNodeLabels: function (lookupServiceNodeLabels, rows) {
+      var nodes = this.collectNodes(rows);
+      // Get the node labels
+      var p = lookupServiceNodeLabels.lookup(nodes);
+      // Transform every node
+      var result = p.pipe(function (nodeToLabel) {
+          var r = _(rows).map(function (row) {
+              var r = {};
+              _(row).each(function (node, key) {
+                var label = nodeToLabel.get(node);
+                r[key] = {
+                  node: node,
+                  displayLabel: label
+                };
+              });
+              return r;
+            });
+          return r;
+        });
+      return result;
+    }
+  };
+  ns.TableService = Class.create({
+    fetchSchema: function () {
+      console.log('Implement me');
+      throw 'Implement me';
+    },
+    fetchCount: function () {
+      console.log('Implement me');
+      throw 'Implement me';
+    },
+    fetchData: function (limit, offset) {
+      console.log('Implement me');
+      throw 'Implement me';
+    }  /**
+         * For identical hash codes, the response of the fetchData method is assumed to
+         * be the same
+         */
+       //        getDataConfigHash: function() {
+       //            console.log('Implement me');
+       //            throw 'Implement me';
+       //        },
+       //        
+       //        getSchemaConfigHash: function() {
+       //            console.log('Implement me');
+       //            throw 'Implement me';
+       //        }
+  });
+  ns.TableServiceQuery = Class.create(ns.TableService, {
+    initialize: function (sparqlService, query, timeoutInMillis, secondaryCountLimit) {
+      this.sparqlService = sparqlService;
+      this.query = query;
+      this.timeoutInMillis = timeoutInMillis || 3000;
+      this.secondaryCountLimit = secondaryCountLimit || 1000;
+    },
+    fetchSchema: function () {
+      var schema = { colDefs: ns.TableServiceUtils.createNgGridOptionsFromQuery(this.query) };
+      var deferred = $.Deferred();
+      deferred.resolve(schema);
+      return deferred.promise();
+    },
+    fetchCount: function () {
+      var result = ns.TableServiceUtils.fetchCount(this.sparqlService, this.query, this.timeoutInMillis, this.secondaryCountLimit);
+      return result;
+    },
+    fetchData: function (limit, offset) {
+      var result = ns.TableServiceUtils.fetchData(this.sparqlService, this.query, limit, offset);
+      return result;
+    }
+  });
+  ns.TableServiceDelegateBase = Class.create(ns.TableService, {
+    initialize: function (delegate) {
+      this.delegate = delegate;
+    },
+    fetchSchema: function () {
+      var result = this.delegate.fetchSchema();
+      return result;
+    },
+    fetchCount: function () {
+      var result = this.delegate.fetchCount();
+      return result;
+    },
+    fetchData: function (limit, offset) {
+      var result = this.delegate.fetchData();
+      return result;
+    }
+  });
+  ns.TableServiceNodeLabels = Class.create(ns.TableServiceDelegateBase, {
+    initialize: function ($super, delegate, lookupServiceNodeLabels) {
+      $super(delegate);
+      this.lookupServiceNodeLabels = lookupServiceNodeLabels;
+    },
+    fetchData: function (limit, offset) {
+      var promise = this.delegate.fetchData(limit, offset);
+      var self = this;
+      var result = promise.pipe(function (rows) {
+          var r = ns.TableServiceUtils.transformToNodeLabels(self.lookupServiceNodeLabels, rows);
+          return r;
+        });
+      return result;
+    }
+  });
+  /**
+     * So the issue is: actually we need a lookup service to get the column headings
+     * The lookup service would need the sparqlService
+     * 
+     * 
+     */
+  //ns.TableServiceFacet = Class.create(ns.TableService, {
+  ns.TableServiceFacet = Class.create(ns.TableServiceNodeLabels, {
+    initialize: function ($super, tableServiceQuery, tableConfigFacet, lookupServiceNodeLabels, lookupServicePathLabels) {
+      $super(tableServiceQuery, lookupServiceNodeLabels);
+      //this.tableServiceQuery = tableServiceQuery;
+      this.tableConfigFacet = tableConfigFacet;
+      //this.lookupServiceNodeLabels = lookupServiceNodeLabels;
+      this.lookupServicePathLabels = lookupServicePathLabels;
+    },
+    fetchSchema: function () {
+      // Ignores the schema of the underlying table Service
+      var result = ns.TableServiceUtils.fetchSchemaTableConfigFacet(this.tableConfigFacet, this.lookupServicePathLabels);
+      return result;
+    }  //        fetchCount: function() {
+       //            var result = this.tableServiceQuery.fetchCount();
+       //            return result;            
+       //        },
+       //                
+       //        fetchData: function(limit, offset) {
+       //            
+       //            var promise = this.tableServiceQuery.fetchData(limit, offset);
+       //            //var promise = ns.TableServiceUtils.fetchData(this.sparqlService, this.query, limit, offset);
+       //
+       //            var self = this;
+       //            var result = promise.pipe(function(rows) {
+       //                var r = ns.TableServiceUtils.transformToNodeLabels(self.lookupServiceNodeLabels, rows);
+       //                return r;
+       //            });
+       //            
+       //            return result;
+       //        }
+  });
+}());
+(function () {
+  var util = jassa.util;
+  var ns = jassa.service;
+  // TODO Rename 'id(s)' to 'key(s)'
+  ns.LookupService = Class.create({
+    getIdStr: function (id) {
+      console.log('Not overridden');
+      throw 'Not overridden';
+    },
+    lookup: function (ids) {
+      console.log('Not overridden');
+      throw 'Not overridden';
+    }
+  });
+  /**
+     * This function must convert ids to unique strings
+     * Only the actual service (e.g. sparql or rest) needs to implement it
+     * Layers on top of it (e.g. caching, delaying) will then delegate to the
+     * inner-most getIdStr function.
+     *
+     */
+  ns.LookupServiceBase = Class.create(ns.LookupService, {
+    getIdStr: function (id) {
+      var result = '' + id;
+      return result;
+    }
+  });
+  ns.LookupServiceDelegateBase = Class.create(ns.LookupService, {
+    initialize: function (delegate) {
+      this.delegate = delegate;
+    },
+    getIdStr: function (id) {
+      var result = this.delegate.getIdStr(id);
+      return result;
+    }
+  });
+  /**
+     * Lookup service is simply a service that can asynchronously map ids to documents (data).
+     *
+     */
+  ns.LookupServiceCache = Class.create(ns.LookupServiceDelegateBase, {
+    initialize: function ($super, delegate, requestCache) {
+      $super(delegate);
+      this.requestCache = requestCache || new ns.RequestCache();
+    },
+    lookup: function (ids) {
+      var self = this;
+      //console.log('cache status [BEFORE] ' + JSON.stringify(self.requestCache));
+      // Make ids unique
+      var uniq = _(ids).uniq(false, function (id) {
+          var idStr = self.getIdStr(id);
+          return idStr;
+        });
+      var resultMap = new util.HashMap();
+      var resultCache = this.requestCache.getResultCache();
+      var executionCache = this.requestCache.getExecutionCache();
+      // Check whether we need to wait for promises that are already executing
+      var open = [];
+      var waitForIds = [];
+      var waitForPromises = [];
+      _(uniq).each(function (id) {
+        var idStr = self.getIdStr(id);
+        var data = resultCache.getItem(idStr);
+        if (!data) {
+          var promise = executionCache[idStr];
+          if (promise) {
+            waitForIds.push(id);
+            var found = _(waitForPromises).find(function (p) {
+                var r = p == promise;
+                return r;
+              });
+            if (!found) {
+              waitForPromises.push(promise);
+            }
+          } else {
+            open.push(id);
+            waitForIds.push(id);
+          }
+        } else {
+          resultMap.put(id, data);
+        }
+      });
+      if (open.length > 0) {
+        var p = this.fetchAndCache(open);
+        waitForPromises.push(p);
+      }
+      var result = jQuery.when.apply(window, waitForPromises).pipe(function () {
+          var maps = arguments;
+          _(waitForIds).each(function (id) {
+            var data = null;
+            _(maps).find(function (map) {
+              data = map.get(id);
+              return !!data;
+            });
+            if (data) {
+              resultMap.put(id, data);
+            }
+          });
+          return resultMap;
+        });
+      return result;
+    },
+    fetchAndCache: function (ids) {
+      var resultCache = this.requestCache.getResultCache();
+      var executionCache = this.requestCache.getExecutionCache();
+      var self = this;
+      var p = this.delegate.lookup(ids);
+      var result = p.pipe(function (map) {
+          var r = new util.HashMap();
+          _(ids).each(function (id) {
+            //var id = self.getIdFromDoc(doc);
+            var idStr = self.getIdStr(id);
+            var doc = map.get(id);
+            resultCache.setItem(idStr, doc);
+            r.put(id, doc);
+          });
+          _(ids).each(function (id) {
+            var idStr = self.getIdStr(id);
+            delete executionCache[idStr];
+          });
+          return r;
+        });
+      _(ids).each(function (id) {
+        var idStr = self.getIdStr(id);
+        executionCache[idStr] = result;
+      });
+      return result;
+    }
+  });
+  ns.LookupServiceChunker = Class.create(ns.LookupServiceDelegateBase, {
+    initialize: function ($super, delegate, maxChunkSize) {
+      //this.delegate = delegate;
+      $super(delegate);
+      this.maxChunkSize = maxChunkSize;
+    },
+    lookup: function (keys) {
+      var self = this;
+      // Make ids unique
+      var ks = _(keys).uniq(false, function (key) {
+          var keyStr = self.getIdStr(key);
+          return keyStr;
+        });
+      var chunks = util.ArrayUtils.chunk(ks, this.maxChunkSize);
+      var promises = _(chunks).map(function (chunk) {
+          var r = self.delegate.lookup(chunk);
+          return r;
+        });
+      var result = jQuery.when.apply(window, promises).pipe(function () {
+          var r = new util.HashMap();
+          _(arguments).each(function (map) {
+            r.putAll(map);
+          });
+          return r;
+        });
+      return result;
+    }
+  });
+  /**
+     * Wrapper that collects ids for a certain amount of time before passing it on to the
+     * underlying lookup service.
+     */
+  ns.LookupServiceTimeout = Class.create(ns.LookupServiceDelegateBase, {
+    initialize: function ($super, delegate, delayInMs, maxRefreshCount) {
+      //this.delegate = delegate;
+      $super(delegate);
+      this.delayInMs = delayInMs;
+      this.maxRefreshCount = maxRefreshCount || 0;
+      this.idStrToId = {};
+      this.currentDeferred = null;
+      this.currentPromise = null;
+      this.currentTimer = null;
+      this.currentRefreshCount = 0;
+    },
+    getIdStr: function (id) {
+      var result = this.delegate.getIdStr(id);
+      return result;
+    },
+    lookup: function (ids) {
+      if (!this.currentDeferred) {
+        this.currentDeferred = jQuery.Deferred();
+        this.currentPromise = this.currentDeferred.promise();
+      }
+      var self = this;
+      _(ids).each(function (id) {
+        var idStr = self.getIdStr(id);
+        var val = self.idStrToId[idStr];
+        if (!val) {
+          self.idStrToId[idStr] = id;
+        }
+      });
+      if (!this.currentTimer) {
+        this.startTimer();
+      }
+      // Filter the result by the ids which we requested
+      var result = this.currentPromise.pipe(function (map) {
+          var r = new util.HashMap();
+          _(ids).each(function (id) {
+            var val = map.get(id);
+            r.put(id, val);
+          });
+          return r;
+        });
+      return result;
+    },
+    startTimer: function () {
+      var self = this;
+      var seenRefereshCount = this.currentRefreshCount;
+      var deferred = self.currentDeferred;
+      this.currentTimer = setTimeout(function () {
+        if (self.maxRefreshCount < 0 || seenRefereshCount < self.maxRefreshCount) {
+          //clearTimeout(this.currentTimer);
+          ++self.currentRefreshCount;
+          self.startTimer();
+          return;
+        }
+        var ids = _(self.idStrToId).values();
+        self.idStrToId = {};
+        self.currentRefreshCount = 0;
+        self.currentDeferred = null;
+        self.currentTimer = null;
+        var p = self.delegate.lookup(ids);
+        p.pipe(function (map) {
+          deferred.resolve(map);
+        }).fail(function () {
+          deferred.fail();
+        });
+      }, this.delayInMs);
+    }  // TODO Rather than refresing for the whole time interval, we could
+       // refresh upon every change (up to a maximum delay time)
+       /*
+        var self = this;
+        var isModified = false;
+        _(ids).each(function(id) {
+            var idStr = self.delegate.getIdStr(id);
+            var val = self.idStrToId[idStr];
+            if(!val) {
+                idStrToId[idStr] = id;
+                isModified = true;
+            }
+        });
+
+        if(!isModified) {
+            return result;
+        }
+        */
+  });
+  ns.LookupServiceSponate = Class.create(ns.LookupServiceBase, {
+    initialize: function (source) {
+      // Note: By source we mean e.g. store.labels
+      this.source = source;
+    },
+    lookup: function (nodes) {
+      var result = this.source.find().nodes(nodes).asList(true).pipe(function (docs) {
+          var r = new util.HashMap();
+          _(docs).each(function (doc) {
+            r.put(doc.id, doc);
+          });
+          return r;
+        });
+      return result;
+    }
+  });
+  // In-place transform the values for the looked up documents
+  ns.LookupServiceTransform = Class.create(ns.LookupServiceDelegateBase, {
+    initialize: function ($super, delegate, fnTransform) {
+      $super(delegate);
+      this.fnTransform = fnTransform;
+    },
+    lookup: function (ids) {
+      var fnTransform = this.fnTransform;
+      var result = this.delegate.lookup(ids).pipe(function (map) {
+          _(ids).each(function (id) {
+            var val = map.get(id);
+            var t = fnTransform(val, id);
+            map.put(id, t);
+          });
+          return map;
+        });
+      return result;
+    }
+  });
+  ns.LookupServicePathLabels = Class.create(ns.LookupServiceBase, {
+    initialize: function (lookupServiceBase) {
+      this.lookupServiceBase = lookupServiceBase;
+    },
+    lookup: function (paths) {
+      var nodes = _(paths).chain().map(function (path) {
+          var r = _(path.getSteps()).map(function (step) {
+              return step.getPropertyName();
+            });
+          return r;
+        }).flatten().uniq().map(function (propertyName) {
+          return rdf.NodeFactory.createUri(propertyName);
+        }).value();
+      // Do a lookup with all the nodes
+      var result = this.lookupServiceBase.lookup(nodes).pipe(function (map) {
+          var r = new util.HashMap();
+          _(paths).each(function (path) {
+            var label = _(path.getSteps()).reduce(function (memo, step) {
+                var result = memo;
+                var property = rdf.NodeFactory.createUri(step.getPropertyName());
+                var label = map.get(property);
+                result = result === '' ? result : result + '&raquo;';
+                result += label;
+                result = !step.isInverse() ? result : result + '&sup1';
+                return result;
+              }, '');
+            if (label === '') {
+              label = 'Items';
+            }
+            r.put(path, label);  /*
+                    r.put(path, {
+                        id: path,
+                        displayLabel: label);
+                    });
+                    */
+          });
+          return r;
+        });
+      return result;
+    }
+  });
+  /**
+     * Lookup Service which can filter keys. Used to e.g. get rid of invalid URIs which would
+     * cause SPARQL queries to fail
+     */
+  ns.LookupServiceIdFilter = Class.create(ns.LookupServiceDelegateBase, {
+    initialize: function ($super, delegate, predicateFn) {
+      $super(delegate);
+      this.predicateFn = predicateFn;
+    },
+    lookup: function (keys) {
+      var newKeys = _(keys).filter(this.predicateFn);
+      var result = this.delegate.lookup(newKeys);
+      return result;
+    }
+  });
+  ns.LookupServiceConst = Class.create(ns.LookupServiceBase, {
+    initialize: function (data) {
+      this.data = data;
+    },
+    lookup: function (keys) {
+      var map = new util.HashMap();
+      var self = this;
+      _(keys).each(function (key) {
+        map.put(key, self.data);
+      });
+      var deferred = jQuery.Deferred();
+      deferred.resolve(map);
+      return deferred.promise();
+    }
+  });
+  ns.LookupServiceConstraintLabels = Class.create(ns.LookupServiceBase, {
+    initialize: function (lookupServiceNodeLabels, lookupServicePathLabels) {
+      this.lookupServiceNodeLabels = lookupServiceNodeLabels;
+      this.lookupServicePathLabels = lookupServicePathLabels || new ns.LookupServicePathLabels(lookupServiceNodeLabels);
+    },
+    lookup: function (constraints) {
+      // Note: For now we just assume subclasses of ConstraintBasePathValue
+      var paths = [];
+      var nodes = [];
+      _(constraints).each(function (constraint) {
+        var cPaths = constraint.getDeclaredPaths();
+        var cNode = constraint.getValue();
+        paths.push.apply(paths, cPaths);
+        nodes.push(cNode);
+      });
+      var p1 = this.lookupServiceNodeLabels.lookup(nodes);
+      var p2 = this.lookupServicePathLabels.lookup(paths);
+      var result = jQuery.when.apply(window, [
+          p1,
+          p2
+        ]).pipe(function (nodeMap, pathMap) {
+          var r = new util.HashMap();
+          _(constraints).each(function (constraint) {
+            var cPath = constraint.getDeclaredPath();
+            var cNode = constraint.getValue();
+            var pathLabel = pathMap.get(cPath);
+            var nodeLabel = nodeMap.get(cNode);
+            var cLabel = pathLabel + ' = ' + nodeLabel;
+            r.put(constraint, cLabel);
+          });
+          return r;
+        });
+      return result;
+    }
+  });
+}());
+(function () {
+  var util = jassa.util;
+  var facete = jassa.facete;
+  var geo = jassa.geo;
+  var sponate = jassa.sponate;
+  var facete = jassa.facete;
+  var ns = jassa.service;
+  /**
+     * A data service only provides a single method for retrieving data based on some 'key' (thing)
+     * The key can be an arbitrary object that identifies a collection (e.g. a tag), a sparql concept, etc...
+     */
+  ns.DataService = Class.create({
+    fetchData: function (thing) {
+      console.log('Not implemented');
+      throw 'Not implemented';
+    }
+  });
+  /**
+     * A list service supports fetching ranges of items and supports thresholded counting.
+     */
+  ns.ListService = Class.create({
+    fetchItems: function (thing, limit, offset) {
+      console.log('Not implemented');
+      throw 'Not implemented';
+    },
+    fetchCount: function (thing, threshold) {
+      console.log('Not implemented');
+      throw 'Not implemented';
+    }
+  });
+  ns.ListServiceBbox = Class.create(ns.ListService, {
+    initialize: function (sparqlService, geoMapFactory, concept) {
+      this.sparqlService = sparqlService;
+      this.geoMapFactory = geoMapFactory;
+      this.concept = concept;  // this.fnGetBBox = fnGetBBox || defaultDocWktExtractorFn;
+                               // TODO How to augment the data provided by the geoMapFactory?
+    },
+    createFlow: function (bounds) {
+      var store = new sponate.StoreFacade(this.sparqlService);
+      // ,
+      // prefixes);
+      var geoMap = this.geoMapFactory.createMap(bounds);
+      store.addMap(geoMap, 'geoMap');
+      return store.geoMap;
+    },
+    fetchItems: function (bounds, limit, offset) {
+      var loadFlow = this.createFlow(bounds).find().concept(this.concept).limit(limit).offset(offset);
+      var result = loadFlow.asList(true);
+      return result;  //            var promises = _(boundsArray).each(function(bounds) {
+                      //                var loadFlow = self.createFlow(bounds).find().concept(self.concept).limit(limit).offset(offset);
+                      //                var r = loadFlow.asList(true);
+                      //                return r;
+                      //            });
+                      //          var result = this.zip(boundsArray, promises);            
+                      //          return result;
+    },
+    fetchCount: function (bounds, threshold) {
+      var countFlow = this.createFlow(bounds).find().concept(this.concept).limit(threshold);
+      var result = countFlow.count();
+      return result;  //            var self = this;
+                      //            var promises = _(boundsArray).each(function(bounds) {
+                      //                var countFlow = self.createFlow(bounds).find().concept(self.concept).limit(countThreshold);
+                      //                var r = countFlow.count();
+                      //                return r;
+                      //            });
+                      //            
+                      //            var result = this.zip(boundsArray, promises);            
+                      //            return result;
+    }
+  });
+  /*
+    ns.ListServiceBBoxStrategy = Class.create(ns.ListService, {
+        initialize: function(strategy) {
+            this.strategy = strategy;
+        },
+        
+        fetchItems: function() {
+            
+        },
+        
+        fetchCount: function() {
+            strategy.runWorkflow()
+        }
+    });
+*/
+  /*
+    ns.ClusterService = Class.create({
+        fetchClusters: function(bounds, limit, offset) {
+        }
+    });
+*/
+  /**
+     * Adds a quad tree cache to the lookup service
+     */
+  ns.DataServiceBboxCache = Class.create({
+    initialize: function (listServiceBbox, maxGlobalItemCount, maxItemsPerTileCount, aquireDepth) {
+      this.listServiceBbox = listServiceBbox;
+      var maxBounds = new geo.Bounds(-180, -90, 180, 90);
+      this.quadTree = new geo.QuadTree(maxBounds, 18, 0);
+      this.maxItemsPerTileCount = maxItemsPerTileCount || 25;
+      this.maxGlobalItemCount = maxGlobalItemCount || 50;
+      this.aquireDepth = aquireDepth || 2;
+    },
+    fetchData: function (bounds) {
+      var result = this.runWorkflow(bounds).pipe(function (nodes) {
+          var arrayOfDocs = _(nodes).map(function (node) {
+              return node.data.docs;
+            });
+          // Remove null items
+          var docs = _(arrayOfDocs).compact();
+          docs = _(docs).flatten(true);
+          // Add clusters as regular items to the list??? 
+          _(nodes).each(function (node) {
+            if (node.isLoaded) {
+              return;
+            }
+            var wkt = geo.GeoExprUtils.boundsToWkt(node.getBounds());
+            var cluster = {
+                id: wkt,
+                zoomClusterBounds: node.getBounds(),
+                wkt: rdf.NodeFactory.createPlainLiteral(wkt)
+              };
+            docs.push(cluster);
+          });
+          return docs;
+        });
+      return result;
+    },
+    runCheckGlobal: function () {
+      var result;
+      var rootNode = this.quadTree.getRootNode();
+      var self = this;
+      if (!rootNode.checkedGlobal) {
+        var countTask = this.listServiceBbox.fetchCount(null, this.maxGlobalItemCount);
+        // var countFlow =
+        // this.createFlowForGlobal().find().concept(this.concept).limit(self.maxGlobalItemCount);
+        // var countTask = countFlow.count();
+        var globalCheckTask = countTask.pipe(function (countInfo) {
+            var canUseGlobal = !countInfo.hasMoreItems;
+            console.log('Global check counts', countInfo);
+            rootNode.canUseGlobal = canUseGlobal;
+            rootNode.checkedGlobal = true;
+            return canUseGlobal;
+          });
+        result = globalCheckTask;
+      } else {
+        var deferred = $.Deferred();
+        deferred.resolve(rootNode.canUseGlobal);
+        result = deferred.promise();
+      }
+      return result;
+    },
+    runWorkflow: function (bounds) {
+      var deferred = $.Deferred();
+      var rootNode = this.quadTree.getRootNode();
+      var self = this;
+      this.runCheckGlobal().pipe(function (canUseGlobal) {
+        console.log('Can use global? ', canUseGlobal);
+        var task;
+        if (canUseGlobal) {
+          task = self.runGlobalWorkflow(rootNode);
+        } else {
+          task = self.runTiledWorkflow(bounds);
+        }
+        task.done(function (nodes) {
+          deferred.resolve(nodes);
+        }).fail(function () {
+          deferred.fail();
+        });
+      }).fail(function () {
+        deferred.fail();
+      });
+      var result = deferred.promise();
+      return result;
+    },
+    runGlobalWorkflow: function (node) {
+      var self = this;
+      var result = this.listServiceBbox.fetchItems(null).pipe(function (docs) {
+          // console.log("Global fetching: ", geomToFeatureCount);
+          self.loadTaskAction(node, docs);
+          return [node];
+        });
+      /*
+             * loadTask.done(function() {
+             * $.when(self.postProcess([node])).done(function() {
+             * //console.log("Global workflow completed.");
+             * //console.debug("Workflow completed. Resolving deferred.");
+             * result.resolve([node]); }).fail(function() { result.fail(); });
+             * }).fail(function() { result.fail(); });
+             */
+      return result;
+    },
+    runTiledWorkflow: function (bounds) {
+      var self = this;
+      //console.log("Aquiring nodes for " + bounds);
+      var nodes = this.quadTree.aquireNodes(bounds, this.aquireDepth);
+      // console.log('Done aquiring');
+      // Init the data attribute if needed
+      _(nodes).each(function (node) {
+        if (!node.data) {
+          node.data = {};
+        }
+      });
+      // Mark empty nodes as loaded
+      _(nodes).each(function (node) {
+        if (node.isCountComplete() && node.infMinItemCount === 0) {
+          node.isLoaded = true;
+        }
+      });
+      var uncountedNodes = _(nodes).filter(function (node) {
+          return self.isCountingNeeded(node);
+        });
+      // console.log("# uncounted nodes", uncountedNodes.length);
+      // The deferred is only resolved once the whole workflow completed
+      var result = $.Deferred();
+      var countTasks = this.createCountTasks(uncountedNodes);
+      $.when.apply(window, countTasks).done(function () {
+        var nonLoadedNodes = _(nodes).filter(function (node) {
+            return self.isLoadingNeeded(node);
+          });
+        // console.log("# non loaded nodes", nonLoadedNodes.length,
+        // nonLoadedNodes);
+        var loadTasks = self.createLoadTasks(nonLoadedNodes);
+        $.when.apply(window, loadTasks).done(function () {
+          // ns.QuadTreeCache.finalizeLoading(nodes);
+          result.resolve(nodes);  /*
+                    $.when(self.postProcess(nodes)).then(function() {
+                        // self.isLocked = false;
+                        // console.debug("Workflow completed. Resolving
+                        // deferred.");
+                        result.resolve(nodes);
+                    });
+                    */
+        });
+      }).fail(function () {
+        result.fail();
+      });
+      return result;
+    },
+    createCountTask: function (node) {
+      var self = this;
+      var threshold = self.maxItemsPerTileCount;
+      // ? self.maxItemsPerTileCount + 1 : null;
+      var countPromise = this.listServiceBbox.fetchCount(node.getBounds(), threshold);
+      var result = countPromise.pipe(function (itemCountInfo) {
+          var itemCount = itemCountInfo.count;
+          node.setMinItemCount(itemCountInfo.count);
+          // If the value is 0, also mark the node as loaded
+          if (itemCount === 0) {
+            // self.initNode(node);
+            node.isLoaded = true;
+          }
+        });
+      // var countFlow =
+      // this.createFlowForBounds(node.getBounds()).find().concept(this.concept).limit(limit);
+      // var result = countFlow.count().pipe(function(itemCountInfo) {
+      return result;
+    },
+    isCountingNeeded: function (node) {
+      // console.log("Node To Count:", node, node.isCountComplete());
+      return !(this.isTooManyGeoms(node) || node.isCountComplete());
+    },
+    isLoadingNeeded: function (node) {
+      // (node.data && node.data.isLoaded)
+      var noLoadingNeeded = node.isLoaded || node.isCountComplete() && node.infMinItemCount === 0 || this.isTooManyGeoms(node);
+      return !noLoadingNeeded;
+    },
+    isTooManyGeoms: function (node) {
+      // console.log("FFS", node.infMinItemCount, node.getMinItemCount());
+      return node.infMinItemCount >= this.maxItemsPerTileCount;
+    },
+    createCountTasks: function (nodes) {
+      var self = this;
+      var result = _(nodes).chain().map(function (node) {
+          return self.createCountTask(node);
+        }).compact().value();
+      /*
+             * var result = []; $.each(nodes, function(i, node) { var task =
+             * self.createCountTask(node); if(task) { result.push(task); } });
+             */
+      return result;
+    },
+    loadTaskAction: function (node, docs) {
+      // console.log('Data for ' + node.getBounds() + ': ', docs);
+      node.data.docs = docs;
+      node.isLoaded = true;
+    },
+    createLoadTasks: function (nodes) {
+      var self = this;
+      var result = [];
+      //promises = this.lookupServiceBBox.fetchDataBounds()
+      // $.each(nodes, function(index, node) {
+      var result = _(nodes).map(function (node) {
+          // console.debug("Inferred minimum item count: ",
+          // node.infMinItemCount);
+          // if(node.data.absoluteGeomToFeatureCount)
+          // var loadFlow =
+          // self.createFlowForBounds(node.getBounds()).find().concept(self.concept);
+          //var loadTask = loadFlow.asList(true).pipe(function(docs) {
+          var loadTask = self.listServiceBbox.fetchItems(node.getBounds()).pipe(function (docs) {
+              self.loadTaskAction(node, docs);
+            });
+          return loadTask;
+        });
+      return result;
+    },
+    finalizeLoading: function (nodes) {
+      // Restructure all nodes that have been completely loaded,
+      var parents = [];
+      $.each(nodes, function (index, node) {
+        if (node.parent) {
+          parents.push(node.parent);
+        }
+      });
+      parents = _.uniq(parents);
+      var change = false;
+      do {
+        change = false;
+        for (var i in parents) {
+          var p = parents[i];
+          var children = p.children;
+          var didMerge = ns.tryMergeNode(p);
+          if (!didMerge) {
+            continue;
+          }
+          change = true;
+          $.each(children, function (i, child) {
+            var indexOf = _.indexOf(nodes, child);
+            if (indexOf >= 0) {
+              nodes[indexOf] = undefined;
+            }
+          });
+          nodes.push(p);
+          if (p.parent) {
+            parents.push(p.parent);
+          }
+          break;
+        }
+      } while (change == true);
+      _.compact(nodes);  /*
+             * $.each(nodes, function(i, node) { node.isLoaded = true; });
+             */
+                         // console.log("All done");
+                         // self._setNodes(nodes, bounds);
+                         // callback.success(nodes, bounds);
+    }
+  });
+  /**
+     * 
+     * 
+     */
+  ns.ListServiceConceptKeyLookup = Class.create(ns.ListService, {
+    initialize: function (sparqlService, keyLookupService) {
+      this.sparqlService = sparqlService;
+      this.keyLookupService = keyLookupService;
+    },
+    fetchItems: function (concept, limit, offset) {
+      var query = facete.ConceptUtils.createQueryList(concept, limit, offset);
+      var deferred = jQuery.Deferred();
+      var self = this;
+      ns.ServiceUtils.fetchList(query, concept.getVar()).pipe(function (items) {
+        self.keyLookupService.lookup(items).pipe(function (map) {
+          deferred.resolve(map);
+        }).fail(function () {
+          deferred.fail();
+        });
+      }).fail(function () {
+        deferred.fail();
+      });
+      return deferred.promise();
+    },
+    fetchCount: function (concept, threshold) {
+      var result = ns.ServiceUtils.fetchCountConcept(concept, threshold);
+      return result;
+    }
+  });
+  /**
+     * If bounds is null, no restriction on the bbox is assumed
+     */
+  ns.BBoxLookupService = Class.create({
+    lookupBBox: function (bounds) {
+      console.log('Not implemented');
+      throw 'Not implemented';
+    }
+  });
+  ns.BBoxLookupService = Class.create(ns.BBoxLookupService, {});
+  ns.LookupServiceUtils = {
+    lookup: function (lookupService, keys) {
+      var result;
+      if (!lookupService || !keys) {
+        var deferred = jQuery.Deferred();
+        deferred.resolve([]);
+        result = deferred.promise();
+      } else {
+        result = lookupService.lookup(keys);
+      }
+      return result;
+    },
+    zip: function (keys, valuePromises) {
+      var result = jQuery.when.apply(window, valuePromises).pipe(function () {
+          var r = new util.HashMap();
+          for (var i = 0; i < keys.length; ++i) {
+            var bounds = keys[i];
+            var docs = arguments[i];
+            r.put(bounds, docs);
+          }
+          return r;
+        });
+      return result;
+    },
+    unmapKeys: function (keys, fn, map) {
+      var result = new util.HashMap();
+      _(keys).each(function (key) {
+        var k = fn(key);
+        var v = map.get(k);
+        r.put(key, v);
+      });
+      return result;
+    },
+    fetchItemsMapped: function (lookupService, keys, fn) {
+      var ks = _(keys).map(fn);
+      var result = lookupService.fetchItems(ks).pipe(function (map) {
+          var r = ns.LookupServiceUtils.unmapKeys(keys, fn, map);
+          return r;
+        });
+      return result;
+    },
+    fetchCountsMapped: function (lookupService, keys, fn) {
+      var ks = _(keys).map(fn);
+      var result = lookupService.fetchCounts(ks).pipe(function (map) {
+          var r = ns.LookupServiceUtils.unmapKeys(keys, fn, map);
+          return r;
+        });
+      return result;
+    }
+  };
+  ns.ListServiceAugmenter = Class.create(ns.ListService, {
+    initialize: function (listService, augmenter) {
+      this.listService = listService;
+      this.augmenter = augmenter;
+    },
+    fetchItems: function (thing, limit, offset) {
+      var deferred = jQuery.Deferred();
+      var promise = this.listService.fetchItems(thing);
+      var self = this;
+      promise.pipe(function (items) {
+        //var items = boundsToItems.values();
+        var p = self.augmenter.augment(items);
+        p.done(function () {
+          deferred.resolve(items);
+        }).fail(function () {
+          deferred.fail();
+        });
+      }).fail(function () {
+        deferred.fail();
+      });
+      return deferred.promise();
+    },
+    fetchCount: function (thing, threshold) {
+      var result = this.listService.fetchCount(thing, threshold);
+      return result;
+    }
+  });
+  /**
+     * Fetches initial data based on a bbox, and uses this to request additional
+     * data from a key lookup service
+     * 
+     */
+  ns.BBoxLookupServiceKeys = Class.create(ns.BBoxLookupService, {
+    initialize: function () {
+    }
+  });
+  /**
+     * 
+     */
+  ns.BBoxLookupServiceSupplierDynamic = Class.create({
+    initialize: function (sparqlServiceSupplier, geoMapSupplier, conceptSupplier, quadTreeConfig) {
+      this.sparqlServiceSupplier = sparqlServiceSupplier;
+      this.geoMapSupplier = geoMapSupplier;
+      this.conceptSupplier = conceptSupplier;
+      this.quadTreeConfig = quadTreeConfig;
+      // this.conceptToService = {};
+      this.hashToCache = {};
+    },
+    fetchItems: function (bounds) {
+      // var sparqlService = this.sparqlService;
+      // var geoMapFactory = this.geoMapFactory;
+      // var conceptFactory = this.conceptFactory;
+      quadTreeConfig = quadTreeConfig || {};
+      _(quadTreeConfig).defaults(ns.ViewStateFetcher.defaultQuadTreeConfig);
+      // quadTreeConfig =
+      // var concept = conceptFactory.createConcept();
+      // TODO Make this configurable
+      var geoMap = geoMapFactory.createMapForGlobal();
+      // TODO This should be a concept, I assume
+      // var geoConcept = geoMap.createConcept();
+      var hash = ns.ViewStateUtils.createStateHash(sparqlService, geoMap, concept);
+      // TODO Combine the concept with the geoConcept...
+      // var serviceHash = sparqlService.getStateHash();
+      // var geoConceptHash =
+      // geoMap.getElementFactory().createElement().toString();
+      // console.log("[DEBUG] Query hash (including facets): " + hash);
+      var cacheEntry = this.hashToCache[hash];
+      if (!cacheEntry) {
+        cacheEntry = new ns.QuadTreeCache(sparqlService, geoMapFactory, concept, null, quadTreeConfig);
+        this.hashToCache[hash] = cacheEntry;
+      }
+      var nodePromise = cacheEntry.fetchData(bounds);
+      // Create a new view state object
+      var result = nodePromise.pipe(function (nodes) {
+          var r = new ns.ViewState(sparqlService, geoMap, concept, bounds, nodes);
+          return r;
+        });
+      return result;
+    }
+  });
+  /*
+    ns.ViewStateFetcher.defaultQuadTreeConfig = {
+        maxItemsPerTileCount: 1000,
+        maxGlobalItemCount: 5000
+    };
+    */
+  /**
+     * 
+     */
+  /*
+    ns.LookupServicePremapKeys = Class.create({
+        initialize: function(lookupService, itemToKeyFn) {
+            this.lookupService = lookupService;
+            this.itemToKeyFn = itemToKeyFn;
+        },
+        
+        lookup: function(keys) {
+            var promise = ns.LookupServiceUtils.fetchDataMapped(this.lookupService, keys, this.itemToKeyFn);
+            var result = promise.pipe(function(map) {
+                var r = ns.LookupServiceUtils.unmapKeys(keys, fn, map);
+                return r;
+            });
+            
+            return result;
+        }
+    });
+    */
+  ns.AugmenterLookup = Class.create({
+    initialize: function (lookupService, itemToKeyFn, mergeFn) {
+      this.lookupService = lookupService;
+      this.itemToKeyFn = itemToKeyFn || function (item) {
+        return item.id;
+      };
+      this.mergeFn = mergeFn || function (base, aug) {
+        //var r = _(base).defaults(aug);
+        var r = _(base).extend(aug);
+        return r;
+      };
+    },
+    augment: function (items) {
+      var deferred = jQuery.Deferred();
+      var keys = _(items).map(this.itemToKeyFn);
+      var self = this;
+      this.lookupService.lookup(keys).pipe(function (map) {
+        for (var i = 0; i < keys.length; ++i) {
+          var key = keys[i];
+          var item = items[i];
+          var val = map.get(key);
+          items[i] = self.mergeFn(item, val);  //items[i] = mergeFn(item, val);
+        }
+        deferred.resolve(items);
+      }).fail(function () {
+        deferred.fail();
+      });
+      return deferred.promise();
     }
   });
 }());
@@ -14837,6 +16278,7 @@ module['exports'] = Jassa;
         result = this.evalExprFunction(e, binding);
       } else if (expr.isConstant()) {
         var e = expr.getConstant();
+        // FIXME: this.evalConstant not defined
         result = this.evalConstant(e, binding);
       } else {
         throw 'Unsupported expr type';
@@ -14898,7 +16340,7 @@ module['exports'] = Jassa;
     createSparqlService: function (sourceConcept, targetConcept) {
       var data = this.createAjaxConfig(sourceConcept, targetConcept);
       // TODO How can we turn the ajax spec into a (base) URL?
-      var result = new service.SparqlServiceHttp(this.apiUrl, [], null, data);
+      var result = new service.SparqlServiceHttp(this.apiUrl, this.defaultGraphIris, null, data);
       return result;
     },
     findPaths: function (sourceConcept, targetConcept) {
@@ -15438,6 +16880,7 @@ module['exports'] = Jassa;
     getVarsMentioned: function () {
       var result = [];
       var stub = this.stub;
+      // FIXME: joinColumn not defined
       if (stub.joinColumn != null) {
         // TODO HACK Use proper expression parsing here
         var v = rdf.Node.v(stub.joinColumn.substr(1));
@@ -15469,7 +16912,7 @@ module['exports'] = Jassa;
       return this.sourceColumns;
     },
     getTargetColumns: function () {
-      return this.targetColumn;
+      return this.targetColumns;
     },
     toString: function () {
       var result = '(' + this.sourceColumns.join(', ') + ') ' + this.tableName + ' (' + this.targetJoinColumns.join() + ')';
@@ -15539,7 +16982,7 @@ module['exports'] = Jassa;
       return this.attrPath;
     },
     toString: function () {
-      var result = this.patternRef + '/' + tableRef + '@' + attrPath;
+      var result = this.patternRef + '/' + this.tableRef + '@' + this.attrPath;
       return result;
     }
   });
@@ -15562,10 +17005,10 @@ module['exports'] = Jassa;
       return this.targetMapRef;
     },
     isArray: function () {
-      this.isArray;
+      return this.isArray;
     },
     getJoinTableRef: function () {
-      return this.joinTabelRef;
+      return this.joinTableRef;
     },
     toString: function () {
       var result = this.sourceMapRef + ' references ' + this.targetMapRef + ' via ' + this.joinTableRef + ' as array? ' + this.isArray;
@@ -15574,11 +17017,12 @@ module['exports'] = Jassa;
   });
   /*
 	 * Aggregators
+	 *     TODO: Possibly rename aggregators to accumulators and pattern to aggregators.
 	 */
   ns.Aggregator = Class.create({
     classLabel: 'Aggregator',
     getPattern: function () {
-      throw new 'override me'();
+      throw 'override me';
     },
     getJson: function (retainRdfNodes) {
       throw 'override me';
@@ -15588,9 +17032,10 @@ module['exports'] = Jassa;
     classLabel: 'AggregatorCustomAgg',
     initialize: function (patternCustomAgg, customAgg) {
       this.customAgg = customAgg;
+      this.patternCustomAgg = patternCustomAgg;
     },
     getPattern: function () {
-      return this.pattenCustomAgg;
+      return this.patternCustomAgg;
     },
     process: function (binding, context) {
       this.customAgg.processBinding(binding);
@@ -15660,7 +17105,7 @@ module['exports'] = Jassa;
   ns.AggregatorObject = Class.create(ns.Aggregator, {
     classLabel: 'AggregatorObject',
     initialize: function (patternObject, attrToAggr) {
-      this.pattersObject = this.patternObject;
+      this.patternObject = patternObject;
       this.attrToAggr = attrToAggr;
     },
     process: function (binding, context) {
@@ -15718,7 +17163,6 @@ module['exports'] = Jassa;
       return result;
     },
     getJsonArray: function (retainRdfNodes) {
-      var result = [];
       var aggrs = this.keyToAggr.getItems();
       var result = aggrs.map(function (aggr) {
           var data = aggr.getJson(retainRdfNodes);
@@ -15731,8 +17175,10 @@ module['exports'] = Jassa;
       var aggrs = this.keyToAggr.getItems();
       var keyToIndex = this.keyToAggr.getKeyToIndex();
       _(keyToIndex).each(function (index, aggr) {
+        // FIXME: items not defined
         var aggr = items[index];
         var data = aggr.getJson(retainRdfNodes);
+        // FIXME: key not defined
         result[key] = data;
       });
       return result;
@@ -15821,6 +17267,7 @@ module['exports'] = Jassa;
       return result;
     },
     visitPatternArray: function (pattern) {
+      // FIXME: AggregatorArray not defined
       return ns.AggregatorArray(pattern);
     },
     visitPatternMap: function (patternMap) {
@@ -15996,28 +17443,56 @@ module['exports'] = Jassa;
   var facete = Jassa.facete;
   var ns = Jassa.sponate;
   ns.QueryConfig = Class.create({
-    initialize: function (criteria, limit, offset, concept, _isLeftJoin) {
+    initialize: function (criteria, limit, offset, concept, _isLeftJoin, nodes) {
       this.criteria = criteria;
       this.limit = limit;
       this.offset = offset;
       // HACK The following two attributes belong together, factor them out into a new class
       this.concept = concept;
       this._isLeftJoin = _isLeftJoin;
+      // Note: For each element in the nodes array, corresponding data will be made available.
+      // Thus, if nodes is an empty array, no results will be fetched; set to null to ignore the setting
+      this.nodes = nodes;
+    },
+    shallowClone: function () {
+      var r = new ns.QueryConfig(this.criteria, this.limit, this.offset, this.concept, this._isLeftJoin, this.nodes);
+      return r;
     },
     getCriteria: function () {
       return this.criteria;
     },
+    setCriteria: function (criteria) {
+      this.criteria = criteria;
+    },
     getLimit: function () {
       return this.limit;
+    },
+    setLimit: function (limit) {
+      this.limit = limit;
     },
     getOffset: function () {
       return this.offset;
     },
+    setOffset: function (offset) {
+      this.offset = offset;
+    },
     getConcept: function () {
       return this.concept;
     },
+    setConcept: function (concept) {
+      this.concept = concept;
+    },
     isLeftJoin: function () {
       return this._isLeftJoin;
+    },
+    setLeftJoin: function (isLeftJoin) {
+      this._isLeftJoin = isLeftJoin;
+    },
+    getNodes: function () {
+      return this.nodes;
+    },
+    setNodes: function (nodes) {
+      this.nodes = nodes;
     }
   });
   /**
@@ -16054,26 +17529,28 @@ module['exports'] = Jassa;
   ns.QueryFlow = Class.create({
     initialize: function (store, criteria) {
       this.store = store;
-      this.config = {};
-      this.config.criteria = criteria;  //			this.criteria = criteria;
-                                        //			
-                                        //			this.limit = null;
-                                        //			this.offset = null;
+      this.config = new ns.QueryConfig();
+      this.config.setCriteria(criteria);
     },
     concept: function (_concept, isLeftJoin) {
-      var join = this.config.join = {};
-      join.concept = _concept;
-      join.isLeftJoin = isLeftJoin;
+      this.config.setConcept(_concept);
+      this.config.setLeftJoin(isLeftJoin);
       return this;
     },
     nodes: function (_nodes) {
+      this.config.setNodes(_nodes);
+      return this;
     },
     skip: function (offset) {
-      this.config.offset = offset;
+      this.config.setOffset(offset);
       return this;
     },
     limit: function (limit) {
-      this.config.limit = limit;
+      this.config.setLimit(limit);
+      return this;
+    },
+    offset: function (offset) {
+      this.config.setOffset(offset);
       return this;
     },
     asList: function (retainRdfNodes) {
@@ -16093,22 +17570,11 @@ module['exports'] = Jassa;
     next: function () {
     },
     execute: function (retainRdfNodes) {
-      //			var config = {
-      //				criteria: this.criteria,
-      //				limit: this.limit,
-      //				offset: this.offset
-      //			};
-      var c = this.config;
-      var j = this.config.join || {};
-      var config = new ns.QueryConfig(c.criteria, c.limit, c.offset, j.concept, j.isLeftJoin);
-      var result = this.store.execute(config, retainRdfNodes);
+      var result = this.store.execute(this.config, retainRdfNodes);
       return result;
     },
     count: function () {
-      var c = this.config;
-      var j = this.config.join || {};
-      var config = new ns.QueryConfig(c.criteria, c.limit, c.offset, j.concept, j.isLeftJoin);
-      var result = this.store.executeCount(config);
+      var result = this.store.executeCount(this.config);
       return result;
     }
   });
@@ -16137,7 +17603,7 @@ module['exports'] = Jassa;
     },
     getByConcept: function (concept, doJoin) {
     },
-    createQueries: function (config) {
+    createQuerySpec: function (config) {
       // TODO Compile the criteria to
       // a) SPARQL filters
       // b) post processors
@@ -16145,8 +17611,9 @@ module['exports'] = Jassa;
       var criteria = config.getCriteria();
       var limit = config.getLimit();
       var offset = config.getOffset();
-      var concept = config.getConcept();
+      var filterConcept = config.getConcept();
       var isLeftJoin = config.isLeftJoin();
+      var nodes = config.getNodes();
       //console.log('context', JSON.stringify(this.context), this.context.getNameToMapping());
       var mapping = this.context.getMapping(this.mappingName);
       // Resolve references if this has not been done yet
@@ -16184,105 +17651,133 @@ module['exports'] = Jassa;
         throw 'Bailing out';
       }
       idVar = idExpr.asVar();
-      var requireSubQuery = limit != null || offset != null || concept != null && !concept.isSubjectConcept() || elementCriteria.length > 0;
+      var requireSubQuery = limit != null || offset != null || elementCriteria.length > 0;
+      // || (filterConcept != null && !filterConcept.isSubjectConcept()) ||;
       var innerElement = outerElement;
-      //            debugger;
-      if (requireSubQuery) {
-        if (concept && (isLeftJoin || !concept.isSubjectConcept())) {
-          var conceptElement = concept.getElement();
-          var conceptVar = concept.getVar();
-          var elementA = conceptElement;
-          var elementB = innerElement;
-          //console.log('elementA: ' + elementA);
-          //console.log('elementB: ' + elementB);
-          var varsA = elementA.getVarsMentioned();
-          var varsB = elementB.getVarsMentioned();
-          var joinVarsA = [conceptVar];
-          var joinVarsB = [idVar];
-          var varMap = sparql.ElementUtils.createJoinVarMap(varsB, varsA, joinVarsB, joinVarsA);
-          //, varNameGenerator);
-          var elementA = sparql.ElementUtils.createRenamedElement(elementA, varMap);
-          //console.log('elementA renamed: ' + elementA);
-          //var conceptElement = concept.getElement();
-          concept = new facete.Concept(elementA, idVar);
-          var q = facete.ConceptUtils.createQueryList(concept);
-          elementA = new sparql.ElementSubQuery(q);
-          if (isLeftJoin) {
-            elementB = new sparql.ElementOptional(elementB);
+      /////            
+      // Combine innerElement, concept and the criteria
+      var attrConcept = new facete.Concept(innerElement, idVar);
+      // If there is no filterConcept, the result is the mappingConcept
+      // If there is a filterConcept and NO leftJoin, the result is the combination of the mappingConcept and the filterConcept
+      //    if there is a leftJoin
+      //       if there is a leftJoin AND there are NO filter criteria, the result is just the filterConcept
+      //    if there are filter criteria, the result is the l
+      //    if there are filter critera, append them
+      // createCombineConcept(attrConcept, filterConcept, renameVars, attrsOptional, filterAsSubquery)
+      var coreConcept;
+      var attrsInCore;
+      if (!filterConcept) {
+        coreConcept = attrConcept;
+      } else {
+        if (!isLeftJoin) {
+          coreConcept = facete.ConceptUtils.createCombinedConcept(attrConcept, filterConcept, true);
+        } else {
+          if (elementCriteria.length > 0) {
+            // Make the attributes optional
+            //var optionalAttrConcept = new facete.Concept(new sparql.ElementOptional(attrConcept.getElement()), attrConcept.getVar());
+            // TODO The filter concept should go first
+            //coreConcept = facete.ConceptUtils.createCombinedConcept(optionalAttrConcept, filterConcept, true, true);
+            coreConcept = facete.ConceptUtils.createCombinedConcept(attrConcept, filterConcept, true, true);
+          } else {
+            //coreConcept = attrConcept;
+            // TODO Rename the vars
+            //coreConcept = filterConcept;
+            coreConcept = facete.ConceptUtils.createRenamedConcept(attrConcept, filterConcept);
           }
-          innerElement = new sparql.ElementGroup([
-            elementA,
-            elementB
-          ]);  /*
-	                 var efa = new sparql.ElementFactoryConst(conceptElement);
-	                 var efb = new sparql.ElementFactoryConst(innerElement);
-	                 
-
-	                 var joinType = isLeftJoin ? sparql.JoinType.LEFT_JOIN : sparql.JoinType.INNER_JOIN;
-	                 
-	                 var efj = new sparql.ElementFactoryJoin(efa, efb, [concept.getVar()], [idVar], joinType);
-	                 innerElement = efj.createElement();
-	                 */
         }
+      }
+      // Append the filter criterias to the core concept
+      if (elementCriteria.length > 0) {
+        var criteriaFilter = elementCriteria.length > 0 ? new sparql.ElementFilter(elementCriteria) : null;
+        var es = [
+            coreConcept.getElement(),
+            criteriaFilter
+          ];
+        var eg = new sparql.ElementGroup(es);
+        //facete.ElementUtils.createElementGroupFlattenShallow(es);
+        coreConcept = new facete.Concept(eg, coreConcept.getVar());
+      }
+      console.log('[INFO] SponateCoreConcept ' + coreConcept);
+      var coreElement = coreConcept.getElement();
+      if (requireSubQuery) {
         var subQuery = new sparql.Query();
-        var subQueryElements = subQuery.getElements();
-        subQueryElements.push(innerElement);
-        if (elementCriteria.length > 0) {
-          subQueryElements.push(new sparql.ElementFilter(elementCriteria));
-        }
-        var subElement = new sparql.ElementSubQuery(subQuery);
+        /*
+				var subQueryElements = subQuery.getElements();
+				subQueryElements.push(innerElement);
+				*/
+        subQuery.setQueryPattern(coreElement);
+        /*
+				if(elementCriteria.length > 0) {
+				    subQueryElements.push(new sparql.ElementFilter(elementCriteria));
+				}
+				*/
+        subQuery.setLimit(limit);
+        subQuery.setOffset(offset);
+        subQuery.setDistinct(true);
+        subQuery.getProject().add(idVar);
         var oe = outerElement;
         if (isLeftJoin) {
           //subElement = new sparql.ElementOptional(subElement);
           oe = new sparql.ElementOptional(outerElement);
         }
-        subQuery.setLimit(limit);
-        subQuery.setOffset(offset);
-        subQuery.setDistinct(true);
-        subQuery.getProject().add(idVar);
         outerElement = new sparql.ElementGroup([
-          subElement,
+          new sparql.ElementSubQuery(subQuery),
           oe
         ]);
         // TODO Do we need a sort condition on the inner query?
         // Note that the inner query already does a distinct
         //var orderBys = subQuery.getOrderBy();
         //orderBys.push.apply(orderBys, sortConditions);
-        innerElement = subElement;
+        innerElement = coreElement;
+      } else {
+        outerElement = coreElement;
       }
       var result = {
           requireSubQuery: requireSubQuery,
+          coreConcept: coreConcept,
           innerElement: innerElement,
           outerElement: outerElement,
           idVar: idVar,
+          idExpr: idExpr,
           vars: vars,
           sortConditions: sortConditions,
           pattern: pattern,
-          criteria: criteria
+          criteria: criteria,
+          nodes: nodes
         };
-      console.log('innerElement: ' + innerElement);
-      console.log('outerElement: ' + outerElement);
+      //console.log('innerElement: ' + innerElement);
+      //console.log('outerElement: ' + outerElement);
       return result;
     },
     execute: function (config, retainRdfNodes) {
-      var spec = this.createQueries(config);
+      var spec = this.createQuerySpec(config);
       var result = this.executeData(spec, retainRdfNodes);
       return result;
     },
     executeCount: function (config) {
-      var spec = this.createQueries(config);
-      var element = spec.innerElement;
-      var idVar = spec.idVar;
-      var concept = new facete.Concept(element, idVar);
-      var outputVar = rdf.NodeFactory.createVar('_c_');
-      var query = facete.ConceptUtils.createQueryCount(concept, outputVar);
-      var qe = this.sparqlService.createQueryExecution(query);
-      var result = service.ServiceUtils.fetchInt(qe, outputVar);
+      var spec = this.createQuerySpec(config);
+      if (spec.nodes) {
+        console.log('Counting if nodes are provided is not implemented yet');
+        throw 'Counting if nodes are provided is not implemented yet';
+      }
+      //var element = spec.innerElement;
+      //var idVar = spec.idVar;           
+      //var concept = new facete.Concept(element, idVar);
+      var concept = spec.coreConcept;
+      var threshold = config.getLimit();
+      var result = service.ServiceUtils.fetchCountConcept(this.sparqlService, concept, threshold);
+      /*
+            var outputVar = rdf.NodeFactory.createVar('_c_');
+            var query = facete.ConceptUtils.createQueryCount(concept, outputVar);
+            var qe = this.sparqlService.createQueryExecution(query);
+            var result = service.ServiceUtils.fetchInt(qe, outputVar);
+            */
       return result;
     },
     executeData: function (spec, retainRdfNodes) {
       var outerElement = spec.outerElement;
       var idExpr = spec.idExpr;
+      var idVar = spec.idVar;
       var sortConditions = spec.sortConditions;
       var vars = spec.vars;
       var pattern = spec.pattern;
@@ -16302,42 +17797,17 @@ module['exports'] = Jassa;
         orderBys.push.apply(orderBys, sortConditions);  //query.getOrderBy().push(sc);
       }
       //query.setLimit(10);
-      // TODO: We need to deal with references
-      var processResult = function (it) {
-        var instancer = new ns.AggregatorFacade(pattern);
-        //var instancer = new sponate.PatternVisitorData(pattern);
-        //var instancer = new sponate.FactoryAggregator();
-        // TODO
-        while (it.hasNext()) {
-          var binding = it.nextBinding();
-          instancer.process(binding);
-        }
-        var json = instancer.getJson(retainRdfNodes);
-        //console.log('Final json: ' + JSON.stringify(json));
-        var result;
-        if (_(json).isArray()) {
-          var filtered;
-          if (retainRdfNodes) {
-            filtered = json;
-          } else {
-            var filtered = _(json).filter(function (item) {
-                var isMatch = criteria.match(item);
-                return isMatch;
-              });
-            var all = json.length;
-            var fil = filtered.length;
-            var delta = all - fil;
-            console.log('[DEBUG] ' + delta + ' items filtered on the client (' + fil + '/' + all + ' remaining) using criteria ' + JSON.stringify(criteria));
-          }
-          result = new util.IteratorArray(filtered);
-        } else {
-          console.log('[ERROR] Implement me');
-          throw 'Implement me';
-        }
-        return result;
-      };
-      var qe = this.sparqlService.createQueryExecution(query);
-      var result = qe.execSelect().pipe(processResult);
+      var rsPromise;
+      if (spec.nodes) {
+        rsPromise = service.ServiceUtils.execSelectForNodes(this.sparqlService, query, idVar, spec.nodes);
+      } else {
+        var qe = this.sparqlService.createQueryExecution(query);
+        rsPromise = qe.execSelect();
+      }
+      var result = rsPromise.pipe(function (rs) {
+          var r = ns.SponateUtils.processResultSet(rs, pattern, retainRdfNodes, false);
+          return r;
+        });
       return result;  //console.log('' + query);
                       // TODO We are no longer retrieving triples, but objects
                       // Thus limit and offset applies to entities -> sub query! 			
@@ -16509,6 +17979,55 @@ or simply: Angular + Magic Sparql = Angular Marql
  * 
  * 
  */
+//  var processResult = function(it) {
+//  var instancer = new ns.AggregatorFacade(pattern);
+//  //var instancer = new sponate.PatternVisitorData(pattern);
+//  //var instancer = new sponate.FactoryAggregator();
+//  // TODO
+//  
+//  while(it.hasNext()) {
+//      var binding = it.nextBinding();
+//      
+//      instancer.process(binding);
+//  }
+//  
+//  var json = instancer.getJson(retainRdfNodes);
+//  
+//  
+//  
+//  //console.log('Final json: ' + JSON.stringify(json));
+//  
+//  var result;
+//  if(_(json).isArray()) {
+//
+//      var filtered;
+//      if(retainRdfNodes) {
+//          filtered = json;
+//      }
+//      else {
+//          var filtered = _(json).filter(function(item) {                                              
+//              var isMatch = criteria.match(item);
+//              return isMatch;
+//          })
+//          
+//          var all = json.length;
+//          var fil = filtered.length;
+//          var delta = all - fil;
+//
+//          console.log('[DEBUG] ' + delta + ' items filtered on the client ('+ fil + '/' + all + ' remaining) using criteria ' + JSON.stringify(criteria));
+//      }
+//
+//      result = new util.IteratorArray(filtered);
+//      
+//  } else {
+//      console.log('[ERROR] Implement me');
+//      throw 'Implement me';
+//  }
+//  
+//  return result;
+//};
+//
+//
 (function () {
   /*
 	 * This file enhances sponate with relational json document mappings
@@ -16532,7 +18051,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       return this.columnNames;
     },
     getSchema: function () {
-      return schema;
+      return this.schema;
     },
     toString: function () {
       return this.name + '(' + this.columnNames.join(', ') + ')';
@@ -16691,7 +18210,7 @@ or simply: Angular + Magic Sparql = Angular Marql
         });
       var table = new ns.Table(name, colNames);
       context.getSchema().addTable(table);
-      context.mapTableNameToElement(name, element);
+      context.mapTableNameToElementFactory(name, element);
     },
     resolveMappingRefs: function (context, sourceMapping) {
       var patternRefs = sourceMapping.getPatternRefs();
@@ -16715,18 +18234,22 @@ or simply: Angular + Magic Sparql = Angular Marql
       var sourceTable = schema.getTable(sourceTableName);
       var targetTable = schema.getTable(targetTableName);
       // Cardinality 1 means no array
-      var isArray = stub.card == 1 ? false : true;
+      // FIXME: card is not defined
+      var isArray = stub.card != 1;
       // TODO attr path
       var sourceColumns;
       var targetColumns;
+      // FIXME: joinColumn not defined
       if (stub.joinColumn) {
         sourceColumns = [stub.joinColumn];
       }
+      // FIXME: refJoinColumn not defined
       if (stub.refJoinColumn) {
         targetColumns = [stub.refJoinColumn];
       }
       //		ns.validateColumnRefs(sourceTable, sourceColumns);
       //		ns.validateColumnRefs(targetTable, targetColumns);
+      // FIXME: stub.joinTable not defined
       var joinTable = stub.joinTable;
       if (joinTable != null) {
         console.log('[ERROR] Implement me');
@@ -16758,6 +18281,35 @@ or simply: Angular + Magic Sparql = Angular Marql
     }
   });
   ns.SponateUtils = {
+    processResultSet: function (rs, pattern, retainRdfNodes, doClientFiltering) {
+      var accumulator = new ns.AggregatorFacade(pattern);
+      while (rs.hasNext()) {
+        var binding = rs.nextBinding();
+        accumulator.process(binding);
+      }
+      var json = accumulator.getJson(retainRdfNodes);
+      //console.log('Final json: ' + JSON.stringify(json));
+      var result;
+      if (_(json).isArray()) {
+        var filtered = json;
+        if (doClientFiltering && !retainRdfNodes) {
+          filtered = _(json).filter(function (item) {
+            // FIXME: criteria not defined
+            var isMatch = criteria.match(item);
+            return isMatch;
+          });
+          var all = json.length;
+          var fil = filtered.length;
+          var delta = all - fil;
+          console.log('[DEBUG] ' + delta + ' items filtered on the client (' + fil + '/' + all + ' remaining) using criteria ' + JSON.stringify(criteria));
+        }
+        result = new util.IteratorArray(filtered);
+      } else {
+        console.log('[ERROR] Implement me');
+        throw 'Implement me';
+      }
+      return result;
+    },
     parseMap: function (spec, prefixMapping, patternParser) {
       var name = spec.name;
       var jsonTemplate = spec.template;
@@ -16968,12 +18520,13 @@ or simply: Angular + Magic Sparql = Angular Marql
         aggs: []
       };
       var open = [a];
+      // FIXME: open won't ever be empty here
       while (open.isEmpty()) {
         var sourceAlias = open.shift();
         var sourceState = aliasToState[sourceAlias];
         var sourceMapping = sourceState.mapping;
         ns.ContextUtils.resolveMappingRefs(this.context, sourceMapping);
-        var refs = mapping.getPatternRefs();
+        var refs = this.mapping.getPatternRefs();
         // For each reference, if it is an immediate join, add it to the join graph
         // TODO And what if it is a lazy join??? We want to be able to batch those.
         _(refs).each(function (ref) {
@@ -17018,6 +18571,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       $super(graph, id);
     },
     getOutgoingEdges: function () {
+      // FIXME: getEdges not defined
       var result = this.graph.getEdges(this.id);
       return result;
     }
@@ -17044,7 +18598,7 @@ or simply: Angular + Magic Sparql = Angular Marql
   ns.Graph = Class.create({
     initialize: function (fnCreateNode, fnCreateEdge) {
       this.fnCreateNode = fnCreateNode;
-      this.fnCretaeEdge = fnCreateEdge;
+      this.fnCreateEdge = fnCreateEdge;
       this.idToNode = {};
       // {v1: {e1: data}}
       // outgoing edges
@@ -17069,10 +18623,11 @@ or simply: Angular + Magic Sparql = Angular Marql
       var tmp = Array.prototype.slice.call(arguments, 0);
       // TODO Maybe we should pass the nodes rather than the node ids
       var xargs = [
-          graph,
+          this.graph,
           nodeIdFrom,
           nodeIdTo
         ].concat(tmp);
+      // FIXME: this.fnEdgeNode not defined
       var result = this.fnEdgeNode.apply(this, xargs);
       var edgeIdToEdge = this.nodeIdToEdgeIdToEdge[edges];
       if (edgeIdToEdge == null) {
@@ -17087,9 +18642,8 @@ or simply: Angular + Magic Sparql = Angular Marql
   ns.NodeJoinElement = Class.create(ns.Node, {
     initialize: function ($super, graph, nodeId, element, alias) {
       $super(graph, nodeId);
-      http:
-        //localhost/jassa/?file=jassa-facete
-        this.element = element;
+      // http://localhost/jassa/?file=jassa-facete
+      this.element = element;
       // TODO ElementProvider?
       this.alias = alias;
     },
@@ -17102,6 +18656,7 @@ or simply: Angular + Magic Sparql = Angular Marql
   });
   ns.fnCreateMappingJoinNode = function (graph, nodeId) {
     console.log('Node arguments:', arguments);
+    // FIXME: ns.MappingJoinNode not defined
     return new ns.MappingJoinNode(graph, nodeId);
   };
   ns.fnCreateMappingEdge = function (graph, edgeId) {
@@ -17308,6 +18863,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       this[name] = new ns.Store(this.service, this.context, name);
     },
     getSchema: function () {
+      // FIXME: schema not defined
       return schema;
     }
   });
@@ -17530,7 +19086,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       return this.value;
     },
     toString: function () {
-      return '(' + attrPath + ' ' + this.opName + ' ' + this.value + ')';
+      return '(' + this.attrPath + ' ' + this.opName + ' ' + this.value + ')';
     }
   });
   /**
@@ -17786,8 +19342,9 @@ or simply: Angular + Magic Sparql = Angular Marql
     },
     visitEq: function (criteria, pattern, context, joinNode, result) {
       //            debugger;
-      var subPattern = pattern.findPattern(attrPath);
+      var subPattern = pattern.findPattern(this.attrPath);
       var expr = this.getExpr(subPattern);
+      // FIXME: ap not defined
       var e = new sparql.E_Equals(new sparql.E_Str(expr), sparql.NodeValue.makeString(ap.getValue()));
       result.push(e);
     },
@@ -18282,6 +19839,8 @@ or simply: Angular + Magic Sparql = Angular Marql
 }());
 (function () {
   var ns = Jassa.sponate;
+  var sparql = Jassa.sparql;
+  var sponate = Jassa.sponate;
   ns.GeoMapFactory = Class.create({
     classLabel: 'GeoMapFactory',
     initialize: function (baseSponateView, bboxExprFactory) {
@@ -18289,6 +19848,10 @@ or simply: Angular + Magic Sparql = Angular Marql
       //this.baseElement = baseElement;
       this.baseSponateView = baseSponateView;
       this.bboxExprFactory = bboxExprFactory;
+    },
+    createMap: function (bounds) {
+      var result = this.createMapForBounds(bounds);
+      return result;
     },
     createMapForGlobal: function () {
       var result = this.createMapForBounds(null);
@@ -18313,6 +19876,52 @@ or simply: Angular + Magic Sparql = Angular Marql
       return result;
     }
   });
+}());
+(function () {
+  //var util = Jassa.util;
+  var rdf = Jassa.rdf;
+  var sparql = Jassa.sparql;
+  var service = Jassa.service;
+  var ns = Jassa.sponate;
+  ns.LookupServiceUtils = {
+    createLookupServiceNodeLabels: function (sparqlService, prefLangs, prefLabelPropertyUris) {
+      var store = new ns.StoreFacade(sparqlService);
+      var labelMap = ns.SponateUtils.createDefaultLabelMap(prefLangs, prefLabelPropertyUris);
+      store.addMap(labelMap, 'labels');
+      var labelsStore = store.labels;
+      var lookupServiceNodeLabels = new service.LookupServiceSponate(labelsStore);
+      lookupServiceNodeLabels = new service.LookupServiceChunker(lookupServiceNodeLabels, 20);
+      lookupServiceNodeLabels = new service.LookupServiceIdFilter(lookupServiceNodeLabels, function (node) {
+        // TODO Using a proper URI validator would increase quality
+        var r = node && node.isUri();
+        if (r) {
+          var uri = node.getUri();
+          r = r && !_(uri).include(' ');
+          r = r && !_(uri).include('<');
+          r = r && !_(uri).include('>');
+        }
+        return r;
+      });
+      lookupServiceNodeLabels = new service.LookupServiceTimeout(lookupServiceNodeLabels, 20);
+      lookupServiceNodeLabels = new service.LookupServiceTransform(lookupServiceNodeLabels, function (doc, id) {
+        var result = doc ? doc.displayLabel : null;
+        if (!result) {
+          if (!id) {
+            result = null;  //'(null id)';
+          } else if (id.isUri()) {
+            result = ns.extractLabelFromUri(id.getUri());
+          } else if (id.isLiteral()) {
+            result = '' + id.getLiteralValue();
+          } else {
+            result = '' + id;
+          }
+        }
+        return result;
+      });
+      var lookupServiceNodeLabels = new service.LookupServiceCache(lookupServiceNodeLabels);
+      return lookupServiceNodeLabels;
+    }
+  };
 }());
 (function () {
   var ns = Jassa.facete;
@@ -18376,6 +19985,7 @@ or simply: Angular + Magic Sparql = Angular Marql
 	 * @param json
 	 */
   ns.Step.fromJson = function (json) {
+    // FIXME: checkNotNull cannot be resolved
     var propertyName = checkNotNull(json.propertyName);
     var isInverse = json.IsInverse();
     var result = new ns.Step(propertyName, isInverse);
@@ -18389,7 +19999,14 @@ or simply: Angular + Magic Sparql = Angular Marql
       result = new ns.Step(str, false);
     }
     return result;
-  }, ns.Path = Class.create({
+  };
+  /**
+	 * A path is a sequence of steps
+	 * 
+	 * @param steps
+	 * @returns {ns.Path}
+	 */
+  ns.Path = Class.create({
     initialize: function (steps) {
       this.steps = steps ? steps : [];
     },
@@ -18540,9 +20157,10 @@ or simply: Angular + Magic Sparql = Angular Marql
   ns.Path.fromString = ns.Path.parse;
 }());
 (function () {
-  var sparql = Jassa.sparql;
-  var rdf = Jassa.rdf;
-  var ns = Jassa.facete;
+  var sparql = jassa.sparql;
+  var rdf = jassa.rdf;
+  var vocab = jassa.vocab;
+  var ns = jassa.facete;
   /**
 	 * Returns a new array of those triples, that are directly part of the given array of elements.
 	 * 
@@ -18563,50 +20181,99 @@ or simply: Angular + Magic Sparql = Angular Marql
 	 * 
 	 */
   ns.ConceptUtils = {
-    createCombinedConcept: function (baseConcept, tmpConcept) {
+    createVarMap: function (attrConcept, filterConcept) {
+      var attrElement = attrConcept.getElement();
+      var filterElement = filterConcept.getElement();
+      var attrVar = attrConcept.getVar();
+      var attrVars = attrElement.getVarsMentioned();
+      var filterVars = filterElement.getVarsMentioned();
+      var attrJoinVars = [attrConcept.getVar()];
+      var filterJoinVars = [filterConcept.getVar()];
+      var result = sparql.ElementUtils.createJoinVarMap(attrVars, filterVars, attrJoinVars, filterJoinVars);
+      //, varNameGenerator);
+      return result;
+    },
+    createRenamedConcept: function (attrConcept, filterConcept) {
+      var varMap = this.createVarMap(attrConcept, filterConcept);
+      var attrVar = attrConcept.getVar();
+      var filterElement = filterConcept.getElement();
+      var newFilterElement = sparql.ElementUtils.createRenamedElement(filterElement, varMap);
+      var result = new ns.Concept(newFilterElement, attrVar);
+      return result;
+    },
+    createCombinedConcept: function (attrConcept, filterConcept, renameVars, attrsOptional, filterAsSubquery) {
       // TODO The variables of baseConcept and tmpConcept must match!!!
       // Right now we just assume that.
-      // Check if the concept of the facetFacadeNode is empty
+      var tmpConcept;
+      if (renameVars) {
+        tmpConcept = this.createRenamedConcept(attrConcept, filterConcept);
+      } else {
+        tmpConcept = filterConcept;
+      }
       var tmpElements = tmpConcept.getElements();
-      var baseElement = baseConcept.getElement();
       // Small workaround (hack) with constraints on empty paths:
       // In this case, the tmpConcept only provides filters but
       // no triples, so we have to include the base concept
-      var hasTriplesTmp = tmpConcept.hasTriples();
+      //var hasTriplesTmp = tmpConcept.hasTriples();
+      //hasTriplesTmp && 
+      var attrVar = attrConcept.getVar();
+      var attrElement = attrConcept.getElement();
       var e;
       if (tmpElements.length > 0) {
-        if (hasTriplesTmp && baseConcept.isSubjectConcept()) {
-          e = tmpConcept.getElement();
+        if (tmpConcept.isSubjectConcept()) {
+          e = attrConcept.getElement();  //tmpConcept.getElement();
         } else {
-          var baseElements = baseConcept.getElements();
           var newElements = [];
-          newElements.push.apply(newElements, baseElements);
+          if (attrsOptional) {
+            attrElement = new sparql.ElementOptional(attrConcept.getElement());
+          }
+          newElements.push(attrElement);
+          if (filterAsSubquery) {
+            tmpElements = [new sparql.ElementSubQuery(tmpConcept.asQuery())];
+          }
+          //newElements.push.apply(newElements, attrElement);
           newElements.push.apply(newElements, tmpElements);
           e = new sparql.ElementGroup(newElements);
+          e = e.flatten();
         }
       } else {
-        e = baseElement;
+        e = attrElement;
       }
-      var concept = new facets.ConceptInt(e, tmpConcept.getVariable());
+      var concept = new ns.Concept(e, attrVar);
       return concept;
     },
-    createSubjectConcept: function (subjectVar) {
+    createSubjectConcept: function (s, p, o) {
       //var s = sparql.Node.v("s");
-      var s = subjectVar;
-      var p = sparql.Node.v('_p_');
-      var o = sparql.Node.v('_o_');
+      s = s || rdf.NodeFactory.createVar('s');
+      p = p || rdf.NodeFactory.createVar('_p_');
+      o = o || rdf.NodeFactory.createVar('_o_');
       var conceptElement = new sparql.ElementTriplesBlock([new rdf.Triple(s, p, o)]);
       //pathManager = new facets.PathManager(s.value);
       var result = new ns.Concept(conceptElement, s);
       return result;
     },
-    createQueryList: function (concept) {
+    createTypeConcept: function (typeUri, subjectVar) {
+      var type = typeUri instanceof rdf.Node ? typeUri : rdf.NodeFactory.createUri(typeUri);
+      var vs = !subjectVar ? rdf.NodeFactory.createVar('s') : subjectVar instanceof rdf.Node ? subjectVar : rdf.NodeFactory.createVar(subjectVar);
+      var result = new ns.Concept(new sparql.ElementTriplesBlock([new rdf.Triple(vs, vocab.rdf.type, type)]), vs);
+      return result;
+    },
+    createQueryList: function (concept, limit, offset) {
       var result = new sparql.Query();
       result.setDistinct(true);
+      result.setLimit(limit);
+      result.setOffset(offset);
       result.getProject().add(concept.getVar());
       var resultElements = result.getElements();
       var conceptElements = concept.getElements();
       resultElements.push.apply(resultElements, conceptElements);
+      return result;
+    },
+    createNewVar: function (concept, baseVarName) {
+      baseVarName = baseVarName || 'c';
+      var varsMentioned = concept.getVarsMentioned();
+      var varGen = sparql.VarUtils.createVarGen(baseVarName, varsMentioned);
+      var result = varGen.next();
       return result;
     },
     createQueryCount: function (concept, outputVar, scanLimit) {
@@ -18674,7 +20341,7 @@ or simply: Angular + Magic Sparql = Angular Marql
 	 * 
 	 */
   ns.Concept = Class.create({
-    classLabel: 'Concept',
+    classLabel: 'jassa.sparql.Concept',
     initialize: function (element, variable) {
       this.element = element;
       this.variable = variable;
@@ -18688,6 +20355,11 @@ or simply: Angular + Magic Sparql = Angular Marql
     },
     getElement: function () {
       return this.element;
+    },
+    getVarsMentioned: function () {
+      // TODO The variable is assumed to be part of the element already
+      var result = this.getElement().getVarsMentioned();
+      return result;
     },
     hasTriples: function () {
       var elements = this.getElements();
@@ -18726,7 +20398,7 @@ or simply: Angular + Magic Sparql = Angular Marql
         if (ts.length === 1) {
           var t = ts[0];
           var s = t.getSubject();
-          var p = t.getProperty();
+          var p = t.getPredicate();
           var o = t.getObject();
           result = v.equals(s) && p.isVariable() && o.isVariable();
         }
@@ -18740,7 +20412,12 @@ or simply: Angular + Magic Sparql = Angular Marql
     createOptimizedConcept: function () {
       var element = this.getElement();
       var newElement = element.flatten();
+      // FIXME: ConceptInt class is not defined
       var result = new ns.ConceptInt(newElement, this.variable);
+      return result;
+    },
+    asQuery: function (limit, offset) {
+      var result = ns.ConceptUtils.createQueryList(this, limit, offset);
       return result;
     },
     getOptimizedElement: function () {
@@ -18911,6 +20588,7 @@ or simply: Angular + Magic Sparql = Angular Marql
     }
   });
   ns.QueryFactoryFacets.create = function (subQueryFactory, rootVarName, generator) {
+    // FIXME: facets.GenSym cannot be resolved
     generator = generator ? generator : new facets.GenSym('fv');
     var rootFacetNode = facets.FacetNode.createRoot(rootVarName, generator);
     var result = new ns.QueryFactoryFacets(subQueryFactory, rootFacetNode);
@@ -18981,19 +20659,58 @@ or simply: Angular + Magic Sparql = Angular Marql
 }());
 (function () {
   var util = Jassa.util;
-  var ns = Jassa.facete;
-  /**
-	 * ConstraintSpecs can be arbitrary objects, however they need to expose the
-	 * declared paths that they affect.
-	 * DeclaredPaths are the ones part of spec, affectedPaths are those after considering the constraint's sparql element. 
+  var ns = Jassa.facete;  /**
+	 * Not used yet; its only here as an idea.
+	 * 
+	 * A specification based on a sparql expression.
+	 * The variables of this expression can be either mapped to paths or to values.  
+	 * 
+	 * These mappings must be disjoint.
 	 * 
 	 */
-  ns.ConstraintSpec = Class.create({
+                          //	ns.ConstraintSpecExpr = Class.create(ns.ConstraintSpec, {
+                          //        classLabel: 'jassa.facete.ConstraintSpecExpr',
+                          //
+                          //		/**
+                          //		 * expr: sparql.Expr
+                          //		 * varToPath: util.Map<Var, Path>
+                          //		 * varToNode: sparql.Binding
+                          //		 */
+                          //		initialize: function(expr, varToPath, varToNode) {
+                          //			this.expr = expr;
+                          //			this.varToPath = varToPath;
+                          //			this.varToNode = varToNode;
+                          //		},
+                          //		
+                          //		getPaths: function() {
+                          //			// extract the paths from varToPath
+                          //		}
+                          //	});
+                          //	ns.ConstraintSpecBBox = Class.create(ns.ConstraintSpecSinglePath, {
+                          //		
+                          //	});
+}());
+(function () {
+  var vocab = Jassa.vocab;
+  var sparql = Jassa.sparql;
+  var xsd = Jassa.xsd;
+  var ns = Jassa.facete;
+  /**
+     * ConstraintSpecs can be arbitrary objects, however they need to expose the
+     * declared paths that they affect.
+     * DeclaredPaths are the ones part of spec, affectedPaths are those after considering the constraint's sparql element. 
+     * 
+     */
+  ns.Constraint = Class.create({
     getName: function () {
       console.log('[ERROR] Override me');
       throw 'Override me';
     },
     getDeclaredPaths: function () {
+      console.log('[ERROR] Override me');
+      throw 'Override me';
+    },
+    createElementsAndExprs: function (facetNode) {
       console.log('[ERROR] Override me');
       throw 'Override me';
     },
@@ -19007,13 +20724,13 @@ or simply: Angular + Magic Sparql = Angular Marql
     }
   });
   /**
-	 * The class of constraint specs that are only based on exactly one path.
-	 * 
-	 * Offers the method getDeclaredPath() (must not return null)
-	 * Do not confuse with getDeclaredPaths() which returns the path as an array
-	 * 
-	 */
-  ns.ConstraintSpecSinglePath = Class.create(ns.ConstraintSpec, {
+     * The class of constraint specs that are only based on exactly one path.
+     * 
+     * Offers the method getDeclaredPath() (must not return null)
+     * Do not confuse with getDeclaredPaths() which returns the path as an array
+     * 
+     */
+  ns.ConstraintBasePath = Class.create(ns.Constraint, {
     initialize: function (name, path) {
       this.name = name;
       this.path = path;
@@ -19028,13 +20745,14 @@ or simply: Angular + Magic Sparql = Angular Marql
       return this.path;
     }
   });
-  ns.ConstraintSpecPath = Class.create(ns.ConstraintSpecSinglePath, {
-    initialize: function ($super, name, path) {
-      $super(name, path);
-    }
-  });
-  ns.ConstraintSpecPathValue = Class.create(ns.ConstraintSpecSinglePath, {
-    classLabel: 'jassa.facete.ConstraintSpecPathValue',
+  /*
+    ns.ConstraintBasePath = Class.create(ns.ConstraintBaseSinglePath, {
+        initialize: function($super, name, path) {
+            $super(name, path);
+        }
+    });
+    */
+  ns.ConstraintBasePathValue = Class.create(ns.ConstraintBasePath, {
     initialize: function ($super, name, path, value) {
       $super(name, path);
       this.value = value;
@@ -19043,7 +20761,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       return this.value;
     },
     equals: function (that) {
-      if (!that instanceof ns.ConstraintSpecPathValue) {
+      if (!that instanceof ns.ConstraintBasePathValue) {
         return false;
       }
       var a = this.name == that.name;
@@ -19057,32 +20775,46 @@ or simply: Angular + Magic Sparql = Angular Marql
       return result;
     }
   });
-  /**
-	 * Not used yet; its only here as an idea.
-	 * 
-	 * A specification based on a sparql expression.
-	 * The variables of this expression can be either mapped to paths or to values.  
-	 * 
-	 * These mappings must be disjoint.
-	 * 
-	 */
-  ns.ConstraintSpecExpr = Class.create(ns.ConstraintSpec, {
-    classLabel: 'jassa.facete.ConstraintSpecExpr',
-    initialize: function (expr, varToPath, varToNode) {
-      this.expr = expr;
-      this.varToPath = varToPath;
-      this.varToNode = varToNode;
+  ns.ConstraintExists = Class.create(ns.ConstraintBasePath, {
+    classLabel: 'jassa.facete.ConstraintExists',
+    initialize: function ($super, path) {
+      $super('exists', path);
     },
-    getPaths: function () {
+    createElementsAndExprs: function (facetNode) {
+      var result = ns.ConstraintUtils.createConstraintExists(facetNode, this.path);
+      return result;
     }
-  });  //	ns.ConstraintSpecBBox = Class.create(ns.ConstraintSpecSinglePath, {
-       //		
-       //	});
-}());
-(function () {
-  var vocab = Jassa.vocab;
-  var sparql = Jassa.sparql;
-  var ns = Jassa.facete;
+  });
+  ns.ConstraintLang = Class.create(ns.ConstraintBasePathValue, {
+    classLabel: 'jassa.facete.ConstraintLang',
+    initialize: function ($super, path, langStr) {
+      $super('lang', path, langStr);
+    },
+    createElementsAndExprs: function (facetNode) {
+      var result = ns.ConstraintUtils.createConstraintLang(facetNode, this.path, this.value);
+      return result;
+    }
+  });
+  ns.ConstraintEquals = Class.create(ns.ConstraintBasePathValue, {
+    classLabel: 'jassa.facete.ConstraintEquals',
+    initialize: function ($super, path, node) {
+      $super('equals', path, node);
+    },
+    createElementsAndExprs: function (facetNode) {
+      var result = ns.ConstraintUtils.createConstraintEquals(facetNode, this.path, this.value);
+      return result;
+    }
+  });
+  ns.ConstraintRegex = Class.create(ns.ConstraintBasePathValue, {
+    classLabel: 'jassa.facete.ConstraintRegex',
+    initialize: function ($super, path, regexStr) {
+      $super('regex', path, regexStr);
+    },
+    createElementsAndExprs: function (facetNode) {
+      var result = ns.ConstraintUtils.createConstraintRegex(facetNode, this.path, this.regexStr);
+      return result;
+    }
+  });
   // The three basic constraint types: mustExist, equals, and range.
   // Futhermore: bbox (multiple implementations possible, such as lat long or wktLiteral based)
   ns.ConstraintElementFactory = Class.create({
@@ -19100,64 +20832,90 @@ or simply: Angular + Magic Sparql = Angular Marql
   //			throw "Override me";
   //		}
   //	});
-  ns.ConstraintElementFactoryExist = Class.create(ns.ConstraintElementFactory, {
-    createElementsAndExprs: function (rootFacetNode, constraintSpec) {
-      var facetNode = rootFacetNode.forPath(constraintSpec.getDeclaredPath());
-      var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
-      var triplesAndExprs = new ns.ElementsAndExprs(elements, []);
-      return result;
-    }
-  });
-  ns.ConstraintElementFactoryLang = Class.create(ns.ConstraintElementFactory, {
-    createElementsAndExprs: function (rootFacetNode, constraintSpec) {
-      var facetNode = rootFacetNode.forPath(constraintSpec.getDeclaredPath());
-      var pathVar = facetNode.getVar();
-      var exprVar = new sparql.ExprVar(pathVar);
-      var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
-      // NOTE Value is assumed to be node holding a string, maybe check it here
-      var val = constraintSpec.getValue().getLiteralValue();
-      var exprs = [new sparql.E_LangMatches(new sparql.E_Lang(exprVar), val)];
-      var result = new ns.ElementsAndExprs(elements, exprs);
-      //console.log('constraintSpec.getValue() ', constraintSpec.getValue());
-      return result;
-    }
-  });
-  ns.ConstraintElementFactoryRegex = Class.create(ns.ConstraintElementFactory, {
-    createElementsAndExprs: function (rootFacetNode, constraintSpec) {
-      var facetNode = rootFacetNode.forPath(constraintSpec.getDeclaredPath());
-      var pathVar = facetNode.getVar();
-      var exprVar = new sparql.ExprVar(pathVar);
-      //var elements = [new sparql.ElementTriplesBlock(facetNode.getTriples())];
-      var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
-      //var valueExpr = constraintSpec.getValue();
-      //var valueExpr = sparql.NodeValue.makeNode(constraintSpec.getValue());
-      // NOTE Value is assumed to be node holding a string, maybe check it here
-      var val = constraintSpec.getValue().getLiteralValue();
-      var exprs = [new sparql.E_Regex(exprVar, val, 'i')];
-      var result = new ns.ElementsAndExprs(elements, exprs);
-      //console.log('constraintSpec.getValue() ', constraintSpec.getValue());
-      return result;
-    }
-  });
+  /*
+	ns.ConstraintElementFactoryExist = Class.create(ns.ConstraintElementFactory, {
+		createElementsAndExprs: function(rootFacetNode, constraintSpec) {
+		    var result = ns.ConstraintUtils.createExists(rootFacetNode, constraint)
+		}
+	});
+*/
+  /*
+    ns.ConstraintElementFactoryLang = Class.create(ns.ConstraintElementFactory, {
+        createElementsAndExprs: function(rootFacetNode, constraintSpec) {
+            var facetNode = rootFacetNode.forPath(constraintSpec.getDeclaredPath());
+
+            var pathVar = facetNode.getVar();
+            var exprVar = new sparql.ExprVar(pathVar);
+
+            var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
+
+            // NOTE Value is assumed to be node holding a string, maybe check it here
+            var val = constraintSpec.getValue().getLiteralValue();
+
+            var exprs = [new sparql.E_LangMatches(new sparql.E_Lang(exprVar), val)];
+            
+            var result = new ns.ElementsAndExprs(elements, exprs);
+            
+            //console.log('constraintSpec.getValue() ', constraintSpec.getValue());
+            return result;
+        }
+    });
+*/
+  /*
+    ns.ConstraintElementFactoryRegex = Class.create(ns.ConstraintElementFactory, {
+        createElementsAndExprs: function(rootFacetNode, constraintSpec) {
+            var facetNode = rootFacetNode.forPath(constraintSpec.getDeclaredPath());
+
+            var pathVar = facetNode.getVar();
+            var exprVar = new sparql.ExprVar(pathVar);
+            
+            //var elements = [new sparql.ElementTriplesBlock(facetNode.getTriples())];
+            var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
+    
+            //var valueExpr = constraintSpec.getValue();
+            //var valueExpr = sparql.NodeValue.makeNode(constraintSpec.getValue());
+            
+            // NOTE Value is assumed to be node holding a string, maybe check it here
+            var val = constraintSpec.getValue().getLiteralValue();
+    
+    
+            var exprs = [new sparql.E_Regex(exprVar, val, 'i')];
+            
+            var result = new ns.ElementsAndExprs(elements, exprs);
+            
+            //console.log('constraintSpec.getValue() ', constraintSpec.getValue());
+            return result;
+        }
+    });
+*/
   /**
 	 * constraintSpec.getValue() must return an instance of sparql.NodeValue
 	 * 
 	 */
-  ns.ConstraintElementFactoryEqual = Class.create(ns.ConstraintElementFactory, {
-    createElementsAndExprs: function (rootFacetNode, constraintSpec) {
-      var facetNode = rootFacetNode.forPath(constraintSpec.getDeclaredPath());
-      var pathVar = facetNode.getVar();
-      var exprVar = new sparql.ExprVar(pathVar);
-      //var elements = [new sparql.ElementTriplesBlock(facetNode.getTriples())];
-      var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
-      //var valueExpr = constraintSpec.getValue();
-      var valueExpr = sparql.NodeValue.makeNode(constraintSpec.getValue());
-      var exprs = [new sparql.E_Equals(exprVar, valueExpr)];
-      var result = new ns.ElementsAndExprs(elements, exprs);
-      //console.log('constraintSpec.getValue() ', constraintSpec.getValue());
-      return result;
-    }
-  });
+  /*	
+	ns.ConstraintElementFactoryEqual = Class.create(ns.ConstraintElementFactory, {
+		createElementsAndExprs: function(rootFacetNode, constraintSpec) {
+			var facetNode = rootFacetNode.forPath(constraintSpec.getDeclaredPath());
+
+			var pathVar = facetNode.getVar();
+			var exprVar = new sparql.ExprVar(pathVar);
+			
+			//var elements = [new sparql.ElementTriplesBlock(facetNode.getTriples())];
+			var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
+	
+			//var valueExpr = constraintSpec.getValue();
+			var valueExpr = sparql.NodeValue.makeNode(constraintSpec.getValue());
+	
+	
+			var exprs = [new sparql.E_Equals(exprVar, valueExpr)];
+			
+			var result = new ns.ElementsAndExprs(elements, exprs);
+			
+			//console.log('constraintSpec.getValue() ', constraintSpec.getValue());
+			return result;
+		}
+	});
+*/
   //	ns.ConstraintElementSparqlExpr = Class.create(ns.ConstraintElementFactory, {
   //		createElement: function(rootFacetNode, constraintSpec) {
   //			
@@ -19166,7 +20924,7 @@ or simply: Angular + Magic Sparql = Angular Marql
   ns.ConstraintElementFactoryBBoxRange = Class.create(ns.ConstraintElementFactory, {
     initialize: function () {
       this.stepX = new ns.Step(vocab.wgs84.str.lon);
-      this.stepY = new ns.Step(vocab.wgs84.str.la);
+      this.stepY = new ns.Step(vocab.wgs84.str.lat);
     },
     createElementsAndExprs: function (rootFacetNode, spec) {
       var facetNode = rootFacetNode.forPath(spec.getPath());
@@ -19180,7 +20938,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       // Create the filter
       var varX = fnX.getVar();
       var varY = fnY.getVar();
-      var expr = ns.createWgsFilter(vX, vY, this.bounds, xsd.xdouble);
+      var expr = ns.createWgsFilter(varX, varY, this.bounds, xsd.xdouble);
       var elements = [new sparql.ElementTriplesBlock(triples)];
       var exprs = [expr];
       // Create the result
@@ -19361,6 +21119,7 @@ or simply: Angular + Magic Sparql = Angular Marql
        //
 }());
 (function () {
+  var vocab = Jassa.vocab;
   var sparql = Jassa.sparql;
   var ns = Jassa.facete;
   ns.ElementsAndExprs = Class.create({
@@ -19381,7 +21140,58 @@ or simply: Angular + Magic Sparql = Angular Marql
       result.push.apply(result, filterElements);
       return result;
     }
-  });  /**
+  });
+  ns.ConstraintUtils = {
+    createConstraintExists: function (rootFacetNode, path) {
+      var facetNode = rootFacetNode.forPath(path);
+      var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
+      var triplesAndExprs = new ns.ElementsAndExprs(elements, []);
+      return result;
+    },
+    createConstraintLang: function (rootFacetNode, path, langStr) {
+      var facetNode = rootFacetNode.forPath(path);
+      var pathVar = facetNode.getVar();
+      var exprVar = new sparql.ExprVar(pathVar);
+      var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
+      // NOTE Value is assumed to be node holding a string, maybe check it here
+      var val = langStr;
+      //constraintSpec.getValue().getLiteralValue();
+      var exprs = [new sparql.E_LangMatches(new sparql.E_Lang(exprVar), val)];
+      var result = new ns.ElementsAndExprs(elements, exprs);
+      //console.log('constraintSpec.getValue() ', constraintSpec.getValue());
+      return result;
+    },
+    createConstraintRegex: function (rootFacetNode, path, str) {
+      var facetNode = rootFacetNode.forPath(path);
+      var pathVar = facetNode.getVar();
+      var exprVar = new sparql.ExprVar(pathVar);
+      //var elements = [new sparql.ElementTriplesBlock(facetNode.getTriples())];
+      var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
+      //var valueExpr = constraintSpec.getValue();
+      //var valueExpr = sparql.NodeValue.makeNode(constraintSpec.getValue());
+      // NOTE Value is assumed to be node holding a string, maybe check it here
+      var val = str;
+      //constraintSpec.getValue().getLiteralValue();
+      var exprs = [new sparql.E_Regex(exprVar, val, 'i')];
+      var result = new ns.ElementsAndExprs(elements, exprs);
+      //console.log('constraintSpec.getValue() ', constraintSpec.getValue());
+      return result;
+    },
+    createConstraintEquals: function (rootFacetNode, path, node) {
+      var facetNode = rootFacetNode.forPath(path);
+      var pathVar = facetNode.getVar();
+      var exprVar = new sparql.ExprVar(pathVar);
+      //var elements = [new sparql.ElementTriplesBlock(facetNode.getTriples())];
+      var elements = sparql.ElementUtils.createElementsTriplesBlock(facetNode.getTriples());
+      //var valueExpr = constraintSpec.getValue();
+      var valueExpr = sparql.NodeValue.makeNode(node);
+      //constraintSpec.getValue());
+      var exprs = [new sparql.E_Equals(exprVar, valueExpr)];
+      var result = new ns.ElementsAndExprs(elements, exprs);
+      //console.log('constraintSpec.getValue() ', constraintSpec.getValue());
+      return result;
+    }
+  };  /**
 	 * @Deprecated in favor of the more generic ElementsAndExprs
 	 * 
 	 * A class that - as the name states - combines triples and exprs.
@@ -19391,251 +21201,66 @@ or simply: Angular + Magic Sparql = Angular Marql
 	 * Additionally provides a createElements to turn its state into an array of sparql elements.
 	 * 
 	 */
-       //	ns.TriplesAndExprs = Class.create({
-       //		initialize: function(triples, exprs) {
-       //			this.triples = triples;
-       //			this.exprs = exprs;
-       //		},
-       //		
-       //		getTriples: function() {
-       //			return this.triples;
-       //		},
-       //		
-       //		getExprs: function() {
-       //			return this.exprs;
-       //		},
-       //		
-       //		createElements: function() {
-       //			var triples = this.triples;
-       //			var exprs = this.exprs;
-       //
-       //			var result = [];
-       //
-       //			if(triples && triples.length > 0) {
-       //				result.push(new sparql.ElementTriplesBlock(triples));
-       //			}
-       //			
-       //			if(exprs && exprs.length > 0) {
-       //				result.push(new sparql.ElementFilter(exprs))
-       //				/*
-       //				var filters = _(exprs).map(function(expr) {
-       //					return new sparql.ElementFilter(expr);
-       //				});
-       //				*/
-       //			}
-       //			
-       //			return result;
-       //		}
-       //	});
+      //	ns.TriplesAndExprs = Class.create({
+      //		initialize: function(triples, exprs) {
+      //			this.triples = triples;
+      //			this.exprs = exprs;
+      //		},
+      //		
+      //		getTriples: function() {
+      //			return this.triples;
+      //		},
+      //		
+      //		getExprs: function() {
+      //			return this.exprs;
+      //		},
+      //		
+      //		createElements: function() {
+      //			var triples = this.triples;
+      //			var exprs = this.exprs;
+      //
+      //			var result = [];
+      //
+      //			if(triples && triples.length > 0) {
+      //				result.push(new sparql.ElementTriplesBlock(triples));
+      //			}
+      //			
+      //			if(exprs && exprs.length > 0) {
+      //				result.push(new sparql.ElementFilter(exprs))
+      //				/*
+      //				var filters = _(exprs).map(function(expr) {
+      //					return new sparql.ElementFilter(expr);
+      //				});
+      //				*/
+      //			}
+      //			
+      //			return result;
+      //		}
+      //	});
 }());
 (function () {
   var util = Jassa.util;
   var sparql = Jassa.sparql;
   var ns = Jassa.facete;
-  ns.createDefaultConstraintElementFactories = function () {
-    var result = new util.ObjectMap();
-    result.put('exist', new ns.ConstraintElementFactoryExist());
-    result.put('equal', new ns.ConstraintElementFactoryEqual());
-    //registry.put("range", new facete.ConstaintElementFactoryRange());		
-    result.put('bbox', new ns.ConstraintElementFactoryBBoxRange());
-    result.put('regex', new ns.ConstraintElementFactoryRegex());
-    result.put('lang', new ns.ConstraintElementFactoryLang());
-    return result;
-  };
   /**
-	 * A class which is backed by a a jassa.util.list<Constraint>
-	 * Only the backing list's .toArray() method is used, essentially
-	 * using the list as a supplier.
+	 * TODO Rename to constraint list
 	 * 
-	 * The question is, whether the methods
-	 * .getConstraintSteps()
-	 * .getConstraintsByPath()
-	 * 
-	 * justify a list wrapper.
-	 * Or maybe these should be static helpers?
-	 * 
-	 *  
-	 */
-  ns.ConstraintList = Class.create({
-    classLabel: 'jassa.facete.ConstraintList',
-    initialize: function (list) {
-      this.list = list || new util.ArrayList();
-    },
-    getConstraintsByPath: function (path) {
-      var result = [];
-      var constraints = this.constraints;
-      for (var i = 0; i < constraints.length; ++i) {
-        var constraint = constraints[i];
-        var paths = constraint.getDeclaredPaths();
-        var isPath = _.some(paths, function (p) {
-            var tmp = p.equals(path);
-            return tmp;
-          });
-        if (isPath) {
-          result.push(constraint);
-        }
-      }
-      return result;
-    },
-    getConstrainedSteps: function (path) {
-      //console.log("getConstrainedSteps: ", path);
-      //checkNotNull(path);
-      var tmp = [];
-      var steps = path.getSteps();
-      var constraints = this.constraints;
-      for (var i = 0; i < constraints.length; ++i) {
-        var constraint = constraints[i];
-        //console.log("  Constraint: " + constraint);
-        var paths = constraint.getDeclaredPaths();
-        //console.log("    Paths: " + paths.length + " - " + paths);
-        for (var j = 0; j < paths.length; ++j) {
-          var p = paths[j];
-          var pSteps = p.getSteps();
-          var delta = pSteps.length - steps.length;
-          //console.log("      Compare: " + delta, p, path);
-          var startsWith = p.startsWith(path);
-          //console.log("      Startswith: " + startsWith);
-          if (delta == 1 && startsWith) {
-            var step = pSteps[pSteps.length - 1];
-            tmp.push(step);
-          }
-        }
-      }
-      var result = _.uniq(tmp, function (step) {
-          return '' + step;
-        });
-      //console.log("Constraint result", constraints.length, result.length);
-      return result;
-    },
-    getConstraints: function () {
-      return this.constraints;
-    },
-    addConstraint: function (constraint) {
-      this.constraints.push(constraint);
-    },
-    removeConstraint: function (constraint) {
-      var result = false;
-      var cs = this.constraints;
-      var n = [];
-      for (var i = 0; i < cs.length; ++i) {
-        var c = cs[i];
-        if (!c.equals(constraint)) {
-          n.push(c);
-        } else {
-          result = true;
-        }
-      }
-      this.constraints = n;
-      return result;
-    },
-    toggleConstraint: function (constraint) {
-      var wasRemoved = this.removeConstraint(constraint);
-      if (!wasRemoved) {
-        this.addConstraint(constraint);
-      }
-    }
-  });
-  /**
-	 * The constraint compiler provides a method for transforming a constraintList
-	 * into corresponding SPARQL elements.
-	 * 
-	 * The compiler is initialized with a constraintElementFactory. The compiler
-	 * just delegates to these factories.
-	 * 
-	 */
-  ns.ConstraintCompiler = Class.create({
-    initialize: function (cefRegistry) {
-      if (!cefRegistry) {
-        cefRegistry = ns.createDefaultConstraintElementFactories();
-      }
-      this.cefRegistry = cefRegistry;
-    },
-    getCefRegistry: function () {
-      return this.cefRegistry;
-    },
-    createElementsAndExprs: function (constraintList, facetNode, excludePath) {
-      //var triples = [];
-      var elements = [];
-      var resultExprs = [];
-      var pathToExprs = {};
-      var self = this;
-      var constraints = constraintList.toArray();
-      _(constraints).each(function (constraint) {
-        var paths = constraint.getDeclaredPaths();
-        var pathId = _(paths).reduce(function (memo, path) {
-            return memo + ' ' + path;
-          }, '');
-        // Check if any of the paths is excluded
-        if (excludePath) {
-          var skip = _(paths).some(function (path) {
-              //console.log("Path.equals", excludePath, path);
-              var tmp = excludePath.equals(path);
-              return tmp;
-            });
-          if (skip) {
-            return;
-          }
-        }
-        _(paths).each(function (path) {
-          //if(path.equals(excludePath)) {
-          // TODO Exclude only works if there is only a single path
-          // Or more generally, if all paths were excluded...
-          // At least that somehow seems to make sense
-          //}
-          var fn = facetNode.forPath(path);
-          //console.log("FNSTATE", fn);
-          var tmpElements = fn.getElements();
-          elements.push.apply(elements, tmpElements);
-        });
-        var constraintName = constraint.getName();
-        var cef = self.cefRegistry.get(constraintName);
-        if (!cef) {
-          throw 'No constraintElementFactory registered for ' + constraintName;
-        }
-        var ci = cef.createElementsAndExprs(facetNode, constraint);
-        //var ci = constraint.instanciate(facetNode);
-        var ciElements = ci.getElements();
-        var ciExprs = ci.getExprs();
-        if (ciElements) {
-          elements.push.apply(elements, ciElements);
-        }
-        if (ciExprs && ciExprs.length > 0) {
-          var exprs = pathToExprs[pathId];
-          if (!exprs) {
-            exprs = [];
-            pathToExprs[pathId] = exprs;
-          }
-          var andExpr = sparql.andify(ciExprs);
-          exprs.push(andExpr);
-        }
-      });
-      _(pathToExprs).each(function (exprs) {
-        var orExpr = sparql.orify(exprs);
-        resultExprs.push(orExpr);
-      });
-      var result = new ns.ElementsAndExprs(elements, resultExprs);
-      return result;
-    }
-  });
-  /**
 	 * A constraint manager is a container for ConstraintSpec objects.
 	 * 
 	 * @param cefRegistry A Map<String, ConstraintElementFactory>
 	 */
   ns.ConstraintManager = Class.create({
-    initialize: function (cefRegistry, constraints) {
-      if (!cefRegistry) {
-        cefRegistry = ns.createDefaultConstraintElementFactories();
-      }
-      this.cefRegistry = cefRegistry;
+    classLabel: 'jassa.facete.ConstraintList',
+    initialize: function (constraints) {
+      //			if(!cefRegistry) {
+      //				cefRegistry = ns.createDefaultConstraintElementFactories(); 
+      //			}
+      //this.cefRegistry = cefRegistry;
       this.constraints = constraints || [];
     },
     shallowClone: function () {
-      var result = new ns.ConstraintManager(this.cefRegistry, this.constraints.slice(0));
+      var result = new ns.ConstraintManager(this.constraints.slice(0));
       return result;
-    },
-    getCefRegistry: function () {
-      return this.cefRegistry;
     },
     getConstraintsByPath: function (path) {
       var result = [];
@@ -19743,12 +21368,12 @@ or simply: Angular + Magic Sparql = Angular Marql
           var tmpElements = fn.getElements();
           elements.push.apply(elements, tmpElements);
         });
-        var constraintName = constraint.getName();
-        var cef = self.cefRegistry.get(constraintName);
-        if (!cef) {
-          throw 'No constraintElementFactory registered for ' + constraintName;
-        }
-        var ci = cef.createElementsAndExprs(facetNode, constraint);
+        //var constraintName = constraint.getName();
+        //				var cef = self.cefRegistry.get(constraintName);
+        //				if(!cef) {
+        //					throw "No constraintElementFactory registered for " + constraintName;
+        //				}
+        var ci = constraint.createElementsAndExprs(facetNode);
         //var ci = constraint.instanciate(facetNode);
         var ciElements = ci.getElements();
         var ciExprs = ci.getExprs();
@@ -19889,6 +21514,267 @@ or simply: Angular + Magic Sparql = Angular Marql
 //		//substitute
 //	}
 //});
+///**
+//* A class which is backed by a a jassa.util.list<Constraint>
+//* Only the backing list's .toArray() method is used, essentially
+//* using the list as a supplier.
+//* 
+//* The question is, whether the methods
+//* .getConstraintSteps()
+//* .getConstraintsByPath()
+//* 
+//* justify a list wrapper.
+//* Or maybe these should be static helpers?
+//* 
+//*  
+//*/
+//ns.ConstraintList = Class.create({
+// classLabel: 'jassa.facete.ConstraintList', 
+//     
+// initialize: function(list) {
+//     this.list = list || new util.ArrayList();
+// },
+//
+//   /**
+//    * Yields all constraints having at least one
+//    * variable bound to the exact path
+//    * 
+//    * Note: In general, a constraint may make use of multiple paths
+//    */
+//   getConstraintsByPath: function(path) {
+//       var result = [];
+//       
+//       var constraints = this.constraints;
+//       
+//       for(var i = 0; i < constraints.length; ++i) {
+//           var constraint = constraints[i];
+//           
+//           var paths = constraint.getDeclaredPaths();
+//           
+//           var isPath = _.some(paths, function(p) {
+//               var tmp = p.equals(path);
+//               return tmp;
+//           });
+//           
+//           if(isPath) {
+//               result.push(constraint);
+//           }
+//       }
+//       
+//       return result;
+//   },
+//   
+//
+//   getConstrainedSteps: function(path) {
+//       //console.log("getConstrainedSteps: ", path);
+//       //checkNotNull(path);
+//       
+//       var tmp = [];
+//       
+//       var steps = path.getSteps();
+//       var constraints = this.constraints;
+//       
+//       for(var i = 0; i < constraints.length; ++i) {
+//           var constraint = constraints[i];
+//           //console.log("  Constraint: " + constraint);
+//
+//           var paths = constraint.getDeclaredPaths();
+//           //console.log("    Paths: " + paths.length + " - " + paths);
+//           
+//           for(var j = 0; j < paths.length; ++j) {
+//               var p = paths[j];
+//               var pSteps = p.getSteps();
+//               var delta = pSteps.length - steps.length; 
+//               
+//               //console.log("      Compare: " + delta, p, path);
+//               
+//               var startsWith = p.startsWith(path);
+//               //console.log("      Startswith: " + startsWith);
+//               if(delta == 1 && startsWith) {
+//                   var step = pSteps[pSteps.length - 1];
+//                   tmp.push(step);
+//               }
+//           }
+//       }
+//       
+//       var result = _.uniq(tmp, function(step) { return "" + step; });
+//       
+//       //console.log("Constraint result", constraints.length, result.length);
+//       
+//       return result;
+//   },
+//   
+//   getConstraints: function() {
+//       return this.constraints;  
+//   },
+//   
+//   addConstraint: function(constraint) {
+//       this.constraints.push(constraint);
+//   },
+//   
+//   // Fcuking hack because of legacy code and the lack of a standard collection library...
+//   // TODO Make the constraints a hash set (or a list set)
+//   removeConstraint: function(constraint) {
+//       var result = false;
+//
+//       var cs = this.constraints;
+//       
+//       var n = [];
+//       for(var i = 0; i < cs.length; ++i) {
+//           var c = cs[i];
+//           
+//           if(!c.equals(constraint)) {
+//               n.push(c);
+//           } else {
+//               result = true;
+//           }
+//       }
+//       
+//       this.constraints = n;
+//       return result;
+//   },
+//
+//   toggleConstraint: function(constraint) {
+//       var wasRemoved = this.removeConstraint(constraint);
+//       if(!wasRemoved) {
+//           this.addConstraint(constraint);
+//       }
+//   }
+//});
+//
+//
+///**
+//* TODO This is dead code and should be removed
+//* 
+//* The constraint compiler provides a method for transforming a constraintList
+//* into corresponding SPARQL elements.
+//* 
+//* The compiler is initialized with a constraintElementFactory. The compiler
+//* just delegates to these factories.
+//* 
+//*/
+//ns.ConstraintCompiler = Class.create({
+//   initialize: function(cefRegistry) {            
+//       if(!cefRegistry) {
+//           cefRegistry = ns.createDefaultConstraintElementFactories(); 
+//       }
+//       
+//       this.cefRegistry = cefRegistry;
+//   },
+//   
+//   getCefRegistry: function() {
+//       return this.cefRegistry;
+//   },
+//   
+//   
+//   createElementsAndExprs: function(constraintList, facetNode, excludePath) {
+//       //var triples = [];
+//       var elements = [];
+//       var resultExprs = [];
+//       
+//       
+//       var pathToExprs = {};
+//       
+//       var self = this;
+//
+//       var constraints = constraintList.toArray();
+//       
+//       _(constraints).each(function(constraint) {
+//           var paths = constraint.getDeclaredPaths();
+//           
+//           var pathId = _(paths).reduce(
+//               function(memo, path) {
+//                   return memo + ' ' + path;
+//               },
+//               ''
+//           );
+//
+//           // Check if any of the paths is excluded
+//           if(excludePath) {
+//               var skip = _(paths).some(function(path) {
+//                   //console.log("Path.equals", excludePath, path);
+//                   
+//                   var tmp = excludePath.equals(path);
+//                   return tmp;
+//               });
+//
+//               if(skip) {
+//                   return;
+//               }
+//           }
+//           
+//           
+//           _(paths).each(function(path) {
+//               
+//               //if(path.equals(excludePath)) {
+//                   // TODO Exclude only works if there is only a single path
+//                   // Or more generally, if all paths were excluded...
+//                   // At least that somehow seems to make sense
+//               //}
+//               
+//               var fn = facetNode.forPath(path);
+//               
+//               //console.log("FNSTATE", fn);
+//               
+//               var tmpElements = fn.getElements();
+//               elements.push.apply(elements, tmpElements);
+//           });
+//           
+//           var constraintName = constraint.getName();
+//           var cef = self.cefRegistry.get(constraintName);
+//           if(!cef) {
+//               throw "No constraintElementFactory registered for " + constraintName;
+//           }
+//           
+//           var ci = cef.createElementsAndExprs(facetNode, constraint);
+//           
+//           //var ci = constraint.instanciate(facetNode);
+//           var ciElements = ci.getElements();
+//           var ciExprs = ci.getExprs();
+//           
+//           if(ciElements) {
+//               elements.push.apply(elements, ciElements);
+//           }               
+//           
+//           if(ciExprs && ciExprs.length > 0) {
+//           
+//               var exprs = pathToExprs[pathId];
+//               if(!exprs) {
+//                   exprs = [];
+//                   pathToExprs[pathId] = exprs;
+//               }
+//               
+//               var andExpr = sparql.andify(ciExprs);
+//               exprs.push(andExpr);
+//           }               
+//       });
+//
+//       _(pathToExprs).each(function(exprs) {
+//           var orExpr = sparql.orify(exprs);
+//           resultExprs.push(orExpr);
+//       });
+//       
+//       var result = new ns.ElementsAndExprs(elements, resultExprs);
+//
+//       return result;
+//   }     
+//});
+/*  
+ns.createDefaultConstraintElementFactories = function() {
+    var result = new util.ObjectMap();
+
+    result.put("exist", new ns.ConstraintElementFactoryExist());
+    result.put("equal", new ns.ConstraintElementFactoryEqual());
+    //registry.put("range", new facete.ConstaintElementFactoryRange());     
+    result.put("bbox", new ns.ConstraintElementFactoryBBoxRange());
+
+    result.put("regex", new ns.ConstraintElementFactoryRegex());
+    result.put("lang", new ns.ConstraintElementFactoryLang());
+
+    
+    return result;
+};
+*/
 (function () {
   var ns = Jassa.facete;
   ns.ConstraintTaggerFactory = Class.create({
@@ -19900,7 +21786,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       var equalConstraints = {};
       _(constraints).each(function (constraint) {
         var constraintType = constraint.getName();
-        if (constraintType == 'equal') {
+        if (constraintType === 'equals') {
           var node = constraint.getValue();
           equalConstraints[node.toString()] = node;
         }
@@ -20305,6 +22191,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       var node = json.node;
       //checkNotNull(node);
       var nodeValue = sparql.NodeValue.makeNode(node);
+      // FIXME: createEquals is not defined in ConstraintUtils
       var result = ns.ConstraintUtils.createEquals(this.facetNode.getPath(), nodeValue);
       return result;
     },
@@ -20314,6 +22201,7 @@ or simply: Angular + Magic Sparql = Angular Marql
     },
     removeConstraint: function (json) {
       var constraint = this.createConstraint(json);
+      // FIXME: ConstraintManager class has no method moveConstraint (only removeConstraint)
       this.constraintManager.moveConstraint(constraint);
     },
     getConstraints: function () {
@@ -20389,13 +22277,14 @@ or simply: Angular + Magic Sparql = Angular Marql
       //var facetVar = sparql.Node.v("__p");
       var valueVar = sparql.Node.v('__o');
       var elements = ns.createElementsFacet(concept, isInverse, facetVar, valueVar);
-      var result = ns.createQueryCount(element, sampleSize, valueVar, countFacetVar, [facetVar], true);
+      var result = ns.createQueryCount(elements, sampleSize, valueVar, countFacetVar, [facetVar], true);
       return result;
     },
     createQueryCount: function (elements, limit, variable, outputVar, groupVars, useDistinct, options) {
       var exprVar = variable ? new sparql.ExprVar(variable) : null;
-      var varQuery = new sparql.Query();
-      if (limit) {
+      var queryPattern;
+      var needsSubQuery = limit || useDistinct || groupVars && groupVars.length > 0;
+      if (needsSubQuery) {
         var subQuery = new sparql.Query();
         var subQueryElements = subQuery.getElements();
         subQueryElements.push.apply(subQueryElements, elements);
@@ -20403,35 +22292,23 @@ or simply: Angular + Magic Sparql = Angular Marql
         if (groupVars) {
           for (var i = 0; i < groupVars.length; ++i) {
             var groupVar = groupVars[i];
-            subQuery.projectVars.add(groupVar);  //subQuery.groupBy.push(groupVar);
+            subQuery.getProject().add(groupVar);  //subQuery.groupBy.push(groupVar);
           }
         }
         if (variable) {
-          subQuery.projectVars.add(variable);
+          subQuery.getProject().add(variable);
         }
-        if (subQuery.projectVars.vars.length === 0) {
+        if (subQuery.getProjectVars().length === 0) {
           subQuery.setResultStar(true);
         }
-        subQuery.limit = limit;
-        varQuery.getElements().push(new sparql.ElementSubQuery(subQuery));
+        subQuery.setDistinct(useDistinct);
+        subQuery.setLimit(limit);
+        queryPattern = new sparql.ElementSubQuery(subQuery);
       } else {
-        var varQueryElements = varQuery.getElements();
-        varQueryElements.push.apply(varQueryElements, elements);
+        queryPattern = new sparql.ElementGroup(elements);
       }
-      //result.groupBy.push(outputVar);
-      if (groupVars) {
-        _(groupVars).each(function (groupVar) {
-          varQuery.getProject().add(groupVar);  //varQuery.getGroupBy().push(new sparql.ExprVar(groupVar));
-        });
-      }
-      varQuery.setDistinct(useDistinct);
-      if (variable) {
-        varQuery.getProject().add(variable);
-      } else {
-        varQuery.setResultStar(true);
-      }
-      var elementVarQuery = new sparql.ElementSubQuery(varQuery);
       var result = new sparql.Query();
+      result.setQueryPattern(queryPattern);
       if (groupVars) {
         _(groupVars).each(function (groupVar) {
           result.getProject().add(groupVar);
@@ -20439,12 +22316,45 @@ or simply: Angular + Magic Sparql = Angular Marql
         });
       }
       result.getProject().add(outputVar, new sparql.E_Count());
-      result.getElements().push(elementVarQuery);
-      //exp, new sparql.E_Count(exprVar, useDistinct));
-      //ns.applyQueryOptions(result, options);
-      //debugger;
-      //console.log("Created count query:" + result + " for element " + element);
-      return result;
+      return result;  // Note Virtuoso has a bug that
+                      // TODO Add the fix to SparqlServiceVirtFix for that
+                      // Select Count(*) { ... } Limit 1000 will prevent from counting beyond 1000 (the limit should only limit the result set after counting to at most 10000 lines) 
+                      /*
+            var tmp = new sparql.Query();
+            tmp.setQueryPattern(new sparql.ElementSubQuery(result));
+//            if(variable) {
+//                tmp.getProject().add(outputVar);
+//            } else {
+                tmp.setResultStar(true);
+//            }
+
+            return tmp;
+//            *
+            //return result;
+
+            
+            /*
+            if(variable) {
+                varQuery.getProject().add(variable)
+            } else {
+                varQuery.setResultStar(true);
+            }
+            */
+                      /*
+            else {
+                varQuery = new sparql.Query();
+                //varQuery.getElements().push(new sparql.ElementSubQuery(subQuery));            
+
+                var varQueryElements = varQuery.getElements();
+                varQueryElements.push.apply(varQueryElements, elements);
+            }
+            */
+                      //result.groupBy.push(outputVar);
+                      //var elementVarQuery = new sparql.ElementSubQuery(varQuery);
+                      //exp, new sparql.E_Count(exprVar, useDistinct));
+                      //ns.applyQueryOptions(result, options);
+                      //debugger;
+                      //console.log("Created count query:" + result + " for element " + element);
     },
     createQueryCountDoesNotWorkWithVirtuoso: function (elements, limit, variable, outputVar, groupVars, useDistinct, options) {
       var exprVar = variable ? new sparql.ExprVar(variable) : null;
@@ -20823,7 +22733,7 @@ or simply: Angular + Magic Sparql = Angular Marql
             return expr;
           });
         var filterExpr = sparql.orify(typeExprs);
-        var triple = new rdf.Triple(propertyVar, vocab.rdf.type, v);
+        triple = new rdf.Triple(propertyVar, vocab.rdf.type, v);
         var element = new sparql.ElementGroup([
             new sparql.ElementTriplesBlock([triple]),
             new sparql.ElementFilter(filterExpr)
@@ -21736,6 +23646,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       var p2 = promise.pipe(function (count) {
           var node = path.isEmpty() ? rdf.NodeFactory.createUri('http://root') : rdf.NodeFactory.createUri(path.getLastStep().getPropertyName());
           var r = new ns.FacetItem(path, node, count, null, null);
+          // FIXME: item cannot be resolved
           var tags = self.pathTaggerManager.createTags(item.getPath());
           item.setTags(tags);
           return r;
@@ -21770,7 +23681,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       return deferred.promise();
     },
     fetchFacetValueCountsThresholded: function (path, isInverse, properties, isNegated, scanLimit, maxQueryLength) {
-      scanLimit = 1000;
+      scanLimit = 10000;
       // Check the scan counts (i.e. how many triples we would have to scan in order to compute the counts of distinct values)
       var querySpecs = this.createQuerySpecsFacetValueScanCounts(path, isInverse, properties, isNegated, scanLimit, maxQueryLength);
       var promise = this.processQuerySpecsFacetValueCounts(path, isInverse, properties, querySpecs);
@@ -21796,7 +23707,7 @@ or simply: Angular + Magic Sparql = Angular Marql
                 var distinctValueCount = -1;
                 var step = new ns.Step(propertyName, isInverse);
                 var childPath = path.copyAppendStep(step);
-                var item = new ns.FacetItem(childPath, property, distinctValueCount);
+                item = new ns.FacetItem(childPath, property, distinctValueCount);
               }
               return item;
             });
@@ -21850,6 +23761,9 @@ or simply: Angular + Magic Sparql = Angular Marql
           //var subElement = new sparql.ElementSubQuery(distinctQuery);
           //var countQuery = ns.QueryUtils.createQueryCount([subElement], null, countVar, outputVar, [groupVar], false);
           var countQuery = ns.QueryUtils.createQueryCount(elements, scanLimit, countVar, outputVar, [groupVar], false);
+          // TODO: The count is just a check for the scan counts, but not for the distinct values...
+          // This means, for each p1 that is below the scan limit, we can do another query
+          //var countQuery = ns.QueryUtils.createQueryCount(elements, null, countVar, outputVar, [groupVar], true);
           return countQuery;
         });
       // For each union query group...		    
@@ -22020,7 +23934,6 @@ or simply: Angular + Magic Sparql = Angular Marql
           self.paginatorModel.set({ pageCount: 1 });
           return;
         }
-        ;
         var result = $.Deferred();
         //console.log('isLoading', self.tableModel.attributes);
         self.paginatorModel.set({ isLoadingPageCount: true });
@@ -22199,7 +24112,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       var store = new sponate.StoreFacade(this.sparqlService);
       var labelMap = sponate.SponateUtils.createDefaultLabelMap();
       store.addMap(labelMap, 'labels');
-      labelsStore = store.labels;
+      var labelsStore = store.labels;
       var criteria = {};
       if (filterText) {
         criteria = {
@@ -22335,6 +24248,8 @@ or simply: Angular + Magic Sparql = Angular Marql
     classLabel: 'jassa.facete.FacetConfig',
     initialize: function (baseConcept, rootFacetNode, constraintManager, labelMap, pathTaggerManager) {
       this.baseConcept = baseConcept;
+      // TODO ISSUE: We may modify the rootFacetNode during an update cycle, which triggers a new cycle, and thus
+      // negatively impacts performance. The easiest solution would be to exclude this method from the watch list.
       this.rootFacetNode = rootFacetNode;
       this.constraintManager = constraintManager;
       this.labelMap = labelMap || sponate.SponateUtils.createDefaultLabelMap();
@@ -22368,7 +24283,11 @@ or simply: Angular + Magic Sparql = Angular Marql
       return this.pathTaggerManager;
     },
     hashCode: function () {
-      var result = util.ObjectUtils.hashCode(this, true);
+      // We omit the facetNode attribute, as this one should not be changed 'on the outside' anyway;
+      // internal changes cause angular's digest loop to execute twice
+      // TODO HACK We shouldn't abuse hashCode() for hacking about issues which are specific to how we do things with angular
+      var shallowCopy = _(this).omit('rootFacetNode');
+      var result = util.ObjectUtils.hashCode(shallowCopy, true);
       return result;
     }  // The following attributes are pretty much UI dependent
        // facetStateProvider, pathToFilterString, expansionSet
@@ -22620,7 +24539,8 @@ or simply: Angular + Magic Sparql = Angular Marql
     }
   });
   /**
-     * Object that holds modifications to a table
+     * Object that holds configuration for modifications to a table.
+     * Needs to be interpreted by another object.
      * 
      * { myCol1: {sortDir: 1, aggName: sum, path: foo}, ... }
      * - sum(?varForFoo) As myCol1
@@ -22696,6 +24616,10 @@ or simply: Angular + Magic Sparql = Angular Marql
         var r = columnId != cid;
         return r;
       });
+      util.ArrayUtils.filter(this.sortConditions, function (sc) {
+        var r = columnId != sc.getColumnId();
+      });
+      delete this.colIdToAgg[columnId];
     }
   });
   /*
@@ -22813,7 +24737,8 @@ or simply: Angular + Magic Sparql = Angular Marql
       return result;
     }
   });
-  ns.FacetTableConfig = Class.create({
+  // TODO: Maybe this class should be TableModFacet and inherit from TableMod?
+  ns.TableConfigFacet = Class.create({
     initialize: function (facetConfig, tableMod, paths) {
       this.facetConfig = facetConfig;
       this.tableMod = tableMod || new ns.TableMod();
@@ -22828,12 +24753,30 @@ or simply: Angular + Magic Sparql = Angular Marql
     getPaths: function () {
       return this.paths;
     },
+    getPath: function (colId) {
+      var index = _(this.tableMod.getColumnIds()).indexOf(colId);
+      var result = this.paths.get(index);
+      return result;
+    },
+    getColumnId: function (path) {
+      var index = this.paths.firstIndexOf(path);
+      var result = this.tableMod.getColumnIds()[index];
+      return result;
+    },
+    removeColumn: function (colId) {
+      var path = this.getPath(colId);
+      this.paths.remove(path);
+    },
+    getColIdForPath: function (path) {
+      var rootFacetNode = this.facetConfig.getRootFacetNode();
+      var facetNode = rootFacetNode.forPath(path);
+      var result = facetNode.getVar().getName();
+      return result;
+    },
     togglePath: function (path) {
       // Updates the table model accordingly
       var status = util.CollectionUtils.toggleItem(this.paths, path);
-      var rootFacetNode = this.facetConfig.getRootFacetNode();
-      var facetNode = rootFacetNode.forPath(path);
-      var varName = facetNode.getVar().getName();
+      var varName = this.getColIdForPath(path);
       if (status) {
         this.tableMod.addColumn(varName);
       } else {
@@ -22864,14 +24807,14 @@ or simply: Angular + Magic Sparql = Angular Marql
     */
   });
   ns.QueryFactoryFacetTable = Class.create(ns.QueryFactory, {
-    initialize: function (facetTableConfig) {
-      this.facetTableConfig = facetTableConfig;
+    initialize: function (tableConfigFacet) {
+      this.tableConfigFacet = tableConfigFacet;
     },
     createQuery: function () {
-      var facetConfig = this.facetTableConfig.getFacetConfig();
+      var facetConfig = this.tableConfigFacet.getFacetConfig();
       // TODO Possible source of confusion: the config uses a collection for paths, but here we switch to a native array 
-      var paths = this.facetTableConfig.getPaths().getArray();
-      var tableMod = this.facetTableConfig.getTableMod();
+      var paths = this.tableConfigFacet.getPaths().getArray();
+      var tableMod = this.tableConfigFacet.getTableMod();
       var elementFactory = new ns.ElementFactoryFacetPaths(facetConfig, paths);
       var queryFactory = new ns.QueryFactoryTableMod(elementFactory, tableMod);
       var result = queryFactory.createQuery();
@@ -22991,6 +24934,7 @@ or simply: Angular + Magic Sparql = Angular Marql
   ns.FaceteTable = Class.create({
     initialize: function () {
       //this.pathVarMap = pathVarMap;// Formerly called facetNode
+      // FIXME: varNode not defined!!!
       this.varNode = varNode;
       this.paths = new util.ArrayList();
       this.tableMod = tableMod;
@@ -23007,8 +24951,10 @@ or simply: Angular + Magic Sparql = Angular Marql
       var target = this.varNode.forPath(path);
       var varName = target.getVarName();
       if (status) {
+        // FIXME: this.tableMode not defined
         this.tableMode.addColumn(varName);
       } else {
+        // FIXME: this.tableMode not defined
         this.tableMode.removeColumn(varName);
       }
     }
@@ -23095,7 +25041,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       if (columnId) {
         this.removeColumn(columnId);
       } else {
-        var columnId = 'col_' + this.columnIds.length;
+        columnId = 'col_' + this.columnIds.length;
         this.putColumn(columnId, path);
       }  /*
             var columnIds = pathToColumnId.get(path);
@@ -23407,8 +25353,9 @@ or simply: Angular + Magic Sparql = Angular Marql
       this.idToPos[id] = pos;
     },
     addItems: function (idToPos) {
+      var id;
       for (id in idToPos) {
-        pos = idToPos[id];
+        var pos = idToPos[id];
         this.addItem(id, pos);
       }
     },
@@ -23481,9 +25428,10 @@ or simply: Angular + Magic Sparql = Angular Marql
     		*/
     },
     _findIndexPoint: function (point) {
+      // FIXME: bounds not defined
       var center = this.getCenter(bounds);
-      left = point.x < center.x;
-      top = point.y > center.y;
+      var left = point.x < center.x;
+      var top = point.y > center.y;
       var index;
       if (left) {
         if (top) {
@@ -23491,14 +25439,12 @@ or simply: Angular + Magic Sparql = Angular Marql
         } else {
           index = Node.BOTTOM_LEFT;
         }
-        ;
       } else {
         if (top) {
           index = Node.TOP_RIGHT;
         } else {
           index = Node.BOTTOM_RIGHT;
         }
-        ;
       }
       return index;
     },
@@ -23521,12 +25467,14 @@ or simply: Angular + Magic Sparql = Angular Marql
       var h = bounds.getHeight() / this._bounds.getHeight();
       var r = Math.max(w, h);
       // Stop recursion on encounter of a loaded node or leaf node or node that exceeded the depth limit
+      // FIXME: depth is not defined
       if (this.isLoaded || !this.children || r >= depth) {
         result.push(this);
         return;
       }
-      for (i in this.children) {
+      for (var i in this.children) {
         var child = this.children[i];
+        // FIXME: depth is not defined
         child.queryRec(bounds, depth, result);
       }
     },
@@ -23579,6 +25527,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       if (!this.parent) {
         return;
       }
+      var i;
       for (i in this.parent.children) {
         var child = this.parent.children[i];
         if (child == this) {
@@ -23594,6 +25543,7 @@ or simply: Angular + Magic Sparql = Angular Marql
 }());
 (function () {
   var ns = Jassa.geo;
+  var sparql = Jassa.sparql;
   ns.GeoExprUtils = {
     createExprWgs84Intersects: function (varX, varY, bounds, castNode) {
       var lon = new sparql.ExprVar(varX);
@@ -23601,6 +25551,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       // Cast the variables if requested
       // TODO E_Cast should not be used - use E_Function(castNode.getUri(), lon) instead - i.e. the cast type equals the cast function name
       if (castNode) {
+        // FIXME: E_Cast not defined
         lon = new sparql.E_Cast(lon, castNode);
         lat = new sparql.E_Cast(lat, castNode);
       }
@@ -23638,6 +25589,9 @@ or simply: Angular + Magic Sparql = Angular Marql
 }());
 (function ($) {
   var ns = Jassa.geo;
+  var xsd = Jassa.xsd;
+  var sparql = Jassa.sparql;
+  var sponate = Jassa.sponate;
   var defaultDocWktExtractorFn = function (doc) {
     var wktStr = doc.wkt;
     var points = ns.WktUtils.extractPointsFromWkt(wktStr);
@@ -23650,6 +25604,7 @@ or simply: Angular + Magic Sparql = Angular Marql
   ns.WktUtils = {
     extractPointsFromWkt: function (wktStr) {
       var result = [];
+      var match;
       while (match = ns.pointRegexPattern.exec(wktStr)) {
         var strX = match[2];
         var strY = match[4];
@@ -23704,8 +25659,8 @@ or simply: Angular + Magic Sparql = Angular Marql
   ns.QuadTreeCache = Class.create({
     initialize: function (sparqlService, geoMapFactory, concept, fnGetBBox, options) {
       this.sparqlService = sparqlService;
-      var maxBounds = new geo.Bounds(-180, -90, 180, 90);
-      this.quadTree = new geo.QuadTree(maxBounds, 18, 0);
+      var maxBounds = new ns.Bounds(-180, -90, 180, 90);
+      this.quadTree = new ns.QuadTree(maxBounds, 18, 0);
       this.concept = concept;
       if (!options) {
         options = {};
@@ -23713,7 +25668,7 @@ or simply: Angular + Magic Sparql = Angular Marql
       this.maxItemsPerTileCount = options.maxItemsPerTileCount || 25;
       this.maxGlobalItemCount = options.maxGlobalItemCount || 50;
       this.geoMapFactory = geoMapFactory;
-      this.fnGetBBox = fnGetBBox || ns.defaultDocWktExtractorFn;
+      this.fnGetBBox = fnGetBBox || defaultDocWktExtractorFn;
     },
     fetchData: function (bounds) {
       var result = this.runWorkflow(bounds);
@@ -23827,9 +25782,9 @@ or simply: Angular + Magic Sparql = Angular Marql
       var result = $.Deferred();
       var countTasks = this.createCountTasks(uncountedNodes);
       $.when.apply(window, countTasks).done(function () {
-        nonLoadedNodes = _(nodes).filter(function (node) {
-          return self.isLoadingNeeded(node);
-        });
+        var nonLoadedNodes = _(nodes).filter(function (node) {
+            return self.isLoadingNeeded(node);
+          });
         //console.log("# non loaded nodes", nonLoadedNodes.length, nonLoadedNodes);
         var loadTasks = self.createLoadTasks(nonLoadedNodes);
         $.when.apply(window, loadTasks).done(function () {
@@ -23847,7 +25802,8 @@ or simply: Angular + Magic Sparql = Angular Marql
     },
     createCountTask: function (node) {
       var self = this;
-      var limit = self.maxItemsPerTileCount ? self.maxItemsPerTileCount + 1 : null;
+      var limit = self.maxItemsPerTileCount;
+      //self.maxItemsPerTileCount ? self.maxItemsPerTileCount + 1 : null;
       var countFlow = this.createFlowForBounds(node.getBounds()).find().concept(this.concept).limit(limit);
       var result = countFlow.count().pipe(function (itemCount) {
           node.setMinItemCount(itemCount);
@@ -23983,8 +25939,11 @@ or simply: Angular + Magic Sparql = Angular Marql
           var databank = node.data.graph;
           _.each(node.data.geomToFeatureCount, function (count, geom) {
             var s = sparql.Node.uri(geom);
-            var o = sparql.Node.typedLit(count, xsd.integer);
+            var o = sparql.NodeFactory.createTypedLiteralFromString(count, xsd.xinteger.value);
+            // FIXME: appvocab.featureCount not defined (I mean, it defined in MapView.js but I don't know if
+            // MapView.js is loaded
             var tripleStr = '' + s + ' ' + appvocab.featureCount + ' ' + o;
+            // FIXME: there is Jassa.rdf.Triple(s, p, o)
             var triple = $.rdf.triple(tripleStr);
             databank.add(triple);
           });
@@ -23994,16 +25953,17 @@ or simply: Angular + Magic Sparql = Angular Marql
               var databank = data.graph;
               _.each(geomToLabel, function (label, uri) {
                 var s = sparql.Node.uri(uri);
-                var o = sparql.Node.plainLit(label.value, label.language);
+                var o = sparql.NodeFactory.createPlainLiteral(label.value, label.language);
                 var tripleStr = '' + s + ' ' + rdfs.label + ' ' + o;
+                // FIXME: there is Jassa.rdf.Triple(s, p, o)
                 var triple = $.rdf.triple(tripleStr);
                 databank.add(triple);
               });
               var geomToPoint = data.geomToPoint;
               _.each(geomToPoint, function (point, uri) {
                 var s = sparql.Node.uri(uri);
-                var oLon = sparql.Node.typedLit(point.x, xsd.xdouble.value);
-                var oLat = sparql.Node.typedLit(point.y, xsd.xdouble.value);
+                var oLon = sparql.NodeFactory.createTypedLiteralFromString(point.x, xsd.xdouble.value);
+                var oLat = sparql.NodeFactory.createTypedLiteralFromString(point.y, xsd.xdouble.value);
                 var lonTriple = '' + s + ' ' + geo.lon + ' ' + oLon;
                 var latTriple = '' + s + ' ' + geo.lat + ' ' + oLat;
                 //alert(lonTriple + " ---- " + latTriple);
@@ -24045,8 +26005,11 @@ or simply: Angular + Magic Sparql = Angular Marql
     parent.isLoaded = true;
     for (var i in parent.children) {
       var child = parent.children[i];
+      // FIXME: mergeMapsInPlace not defined
       mergeMapsInPlace(parent.idToPos, child.idToPos);
+      // FIXME: mergeMapsInPlace not defined
       mergeMapsInPlace(parent.data.idToLabels, child.data.idToLabels);
+      // FIXME: mergeMapsInPlace not defined
       mergeMapsInPlace(parent.data.idToTypes, child.data.idToTypes);  //parent.data.ids.addAll(child.data.ids);
                                                                       //parent.data.addAll(child.data);
     }
@@ -24215,6 +26178,7 @@ or simply: Angular + Magic Sparql = Angular Marql
 }());
 (function () {
   var ns = Jassa.geo.openlayers;
+  var geo = Jassa.geo;
   /**
      * MapUtils for a OpenLayers map
      * 
@@ -24224,6 +26188,35 @@ or simply: Angular + Magic Sparql = Angular Marql
       var olRawExtent = map.getExtent();
       var e = olRawExtent.transform(map.projection, map.displayProjection);
       var result = new geo.Bounds(e.left, e.bottom, e.right, e.top);
+      return result;
+    }
+  };
+}());
+(function () {
+  var ns = jassa.geo;
+  var sparql = jassa.sparql;
+  var service = jassa.service;
+  ns.GeoDataSourceUtils = {
+    createGeoDataSourceLabels: function (sparqlService, geoMapFactory, concept, attrs) {
+      if (attrs == null) {
+        attrs = {};
+      }
+      // The 'core' service from which to retrieve the initial data
+      var bboxListService = new service.ListServiceBbox(sparqlService, geoMapFactory, concept);
+      // Wrap this service for augmenting (enriching) it with labels
+      var lookupServiceLabels = sponate.LookupServiceUtils.createLookupServiceNodeLabels(sparqlService);
+      lookupServiceLabels = new service.LookupServiceTransform(lookupServiceLabels, function (doc, id) {
+        var result = { shortLabel: doc };
+        return result;
+      });
+      var augmenterLabels = new service.AugmenterLookup(lookupServiceLabels);
+      bboxListService = new service.ListServiceAugmenter(bboxListService, augmenterLabels);
+      // Also add style information
+      var lookupServiceStyle = new service.LookupServiceConst(attrs);
+      var augmenterStyle = new service.AugmenterLookup(lookupServiceStyle);
+      bboxListService = new service.ListServiceAugmenter(bboxListService, augmenterStyle);
+      // Wrap the list service with clustering support
+      var result = new service.DataServiceBboxCache(bboxListService, 1500, 500, 2);
       return result;
     }
   };
@@ -43950,7 +45943,7 @@ if (typeof jQuery === 'undefined') {
 * ng-grid JavaScript Library
 * Authors: https://github.com/angular-ui/ng-grid/blob/master/README.md 
 * License: MIT (http://www.opensource.org/licenses/mit-license.php)
-* Compiled At: 07/06/2013 13:50
+* Compiled At: 04/29/2014 10:21
 ***********************************************/
 (function (window, $) {
   'use strict';
@@ -43966,6 +45959,7 @@ if (typeof jQuery === 'undefined') {
   var COL_FIELD = /COL_FIELD/g;
   var DISPLAY_CELL_TEMPLATE = /DISPLAY_CELL_TEMPLATE/g;
   var EDITABLE_CELL_TEMPLATE = /EDITABLE_CELL_TEMPLATE/g;
+  var CELL_EDITABLE_CONDITION = /CELL_EDITABLE_CONDITION/g;
   var TEMPLATE_REGEXP = /<.+>/;
   window.ngGrid = {};
   window.ngGrid.i18n = {};
@@ -43989,7 +45983,7 @@ if (typeof jQuery === 'undefined') {
     if ($scope.col) {
       newColumnIndex = visibleCols.indexOf($scope.col);
     }
-    if (charCode !== 37 && charCode !== 38 && charCode !== 39 && charCode !== 40 && charCode !== 9 && charCode !== 13) {
+    if (charCode !== 37 && charCode !== 38 && charCode !== 39 && charCode !== 40 && (grid.config.noTabInterference || charCode !== 9) && charCode !== 13) {
       return true;
     }
     if ($scope.enableCellSelection) {
@@ -44124,7 +46118,8 @@ if (typeof jQuery === 'undefined') {
   });
   angular.module('ngGrid.services').factory('$domUtilityService', [
     '$utilityService',
-    function ($utils) {
+    '$window',
+    function ($utils, $window) {
       var domUtilityService = {};
       var regexCache = {};
       var getWidths = function () {
@@ -44152,10 +46147,20 @@ if (typeof jQuery === 'undefined') {
         grid.$viewport = grid.$root.find('.ngViewport');
         grid.$canvas = grid.$viewport.find('.ngCanvas');
         grid.$footerPanel = grid.$root.find('.ngFooterPanel');
-        $scope.$watch(function () {
-          return grid.$viewport.scrollLeft();
-        }, function (newLeft) {
-          return grid.$headerContainer.scrollLeft(newLeft);
+        var scopeDereg = $scope.$watch(function () {
+            return grid.$viewport.scrollLeft();
+          }, function (newLeft) {
+            return grid.$headerContainer.scrollLeft(newLeft);
+          });
+        $scope.$on('$destroy', function () {
+          $(grid.$root.parent()).off('resize.nggrid');
+          grid.$root = null;
+          grid.$topPanel = null;
+          grid.$headerContainer = null;
+          grid.$headers = null;
+          grid.$canvas = null;
+          grid.$footerPanel = null;
+          scopeDereg();
         });
         domUtilityService.UpdateGridLayout($scope, grid);
       };
@@ -44172,6 +46177,9 @@ if (typeof jQuery === 'undefined') {
         return width;
       };
       domUtilityService.UpdateGridLayout = function ($scope, grid) {
+        if (!grid.$root) {
+          return;
+        }
         var scrollTop = grid.$viewport.scrollTop();
         grid.elementDims.rootMaxW = grid.$root.width();
         if (grid.$root.is(':hidden')) {
@@ -44182,15 +46190,27 @@ if (typeof jQuery === 'undefined') {
         $scope.adjustScrollTop(scrollTop, true);
       };
       domUtilityService.numberOfGrids = 0;
-      domUtilityService.BuildStyles = function ($scope, grid, digest) {
-        var rowHeight = grid.config.rowHeight, $style = grid.$styleSheet, gridId = grid.gridId, css, cols = $scope.columns, sumWidth = 0;
-        if (!$style) {
-          $style = $('#' + gridId);
-          if (!$style[0]) {
-            $style = $('<style id=\'' + gridId + '\' type=\'text/css\' rel=\'stylesheet\' />').appendTo(grid.$root);
-          }
+      domUtilityService.setStyleText = function (grid, css) {
+        var style = grid.styleSheet, gridId = grid.gridId, doc = $window.document;
+        if (!style) {
+          style = doc.getElementById(gridId);
         }
-        $style.empty();
+        if (!style) {
+          style = doc.createElement('style');
+          style.type = 'text/css';
+          style.id = gridId;
+          (doc.head || doc.getElementsByTagName('head')[0]).appendChild(style);
+        }
+        if (style.styleSheet && !style.sheet) {
+          style.styleSheet.cssText = css;
+        } else {
+          style.innerHTML = css;
+        }
+        grid.styleSheet = style;
+        grid.styleText = css;
+      };
+      domUtilityService.BuildStyles = function ($scope, grid, digest) {
+        var rowHeight = grid.config.rowHeight, gridId = grid.gridId, css, cols = $scope.columns, sumWidth = 0;
         var trw = $scope.totalRowWidth();
         css = '.' + gridId + ' .ngCanvas { width: ' + trw + 'px; }' + '.' + gridId + ' .ngRow { width: ' + trw + 'px; }' + '.' + gridId + ' .ngCanvas { width: ' + trw + 'px; }' + '.' + gridId + ' .ngHeaderScroller { width: ' + (trw + domUtilityService.ScrollH) + 'px}';
         for (var i = 0; i < cols.length; i++) {
@@ -44200,32 +46220,20 @@ if (typeof jQuery === 'undefined') {
             sumWidth += col.width;
           }
         }
-        if ($utils.isIe) {
-          $style[0].styleSheet.cssText = css;
-        } else {
-          $style[0].appendChild(document.createTextNode(css));
-        }
-        grid.$styleSheet = $style;
+        domUtilityService.setStyleText(grid, css);
         $scope.adjustScrollLeft(grid.$viewport.scrollLeft());
         if (digest) {
           domUtilityService.digest($scope);
         }
       };
       domUtilityService.setColLeft = function (col, colLeft, grid) {
-        if (grid.$styleSheet) {
+        if (grid.styleText) {
           var regex = regexCache[col.index];
           if (!regex) {
             regex = regexCache[col.index] = new RegExp('.col' + col.index + ' { width: [0-9]+px; left: [0-9]+px');
           }
-          var str = grid.$styleSheet.html();
-          var newStr = str.replace(regex, '.col' + col.index + ' { width: ' + col.width + 'px; left: ' + colLeft + 'px');
-          if ($utils.isIe) {
-            setTimeout(function () {
-              grid.$styleSheet.html(newStr);
-            });
-          } else {
-            grid.$styleSheet.html(newStr);
-          }
+          var css = grid.styleText.replace(regex, '.col' + col.index + ' { width: ' + col.width + 'px; left: ' + colLeft + 'px');
+          domUtilityService.setStyleText(grid, css);
         }
       };
       domUtilityService.setColLeft.immediate = 1;
@@ -44254,6 +46262,7 @@ if (typeof jQuery === 'undefined') {
     function ($parse) {
       var sortService = {};
       sortService.colSortFnCache = {};
+      sortService.isCustomSort = false;
       sortService.guessSortFn = function (item) {
         var itemType = typeof item;
         switch (itemType) {
@@ -44328,31 +46337,33 @@ if (typeof jQuery === 'undefined') {
         }
         var l = sortInfo.fields.length, order = sortInfo.fields, col, direction, d = data.slice(0);
         data.sort(function (itemA, itemB) {
-          var tem = 0, indx = 0, sortFn;
+          var tem = 0, indx = 0, res, sortFn;
           while (tem === 0 && indx < l) {
             col = sortInfo.columns[indx];
             direction = sortInfo.directions[indx];
             sortFn = sortService.getSortFn(col, d);
             var propA = $parse(order[indx])(itemA);
             var propB = $parse(order[indx])(itemB);
-            if (!propA && propA !== 0 || !propB && propB !== 0) {
-              if (!propB && !propA) {
-                tem = 0;
-              } else if (!propA) {
-                tem = 1;
-              } else if (!propB) {
-                tem = -1;
-              }
+            if (sortService.isCustomSort) {
+              res = sortFn(propA, propB);
+              tem = direction === ASC ? res : 0 - res;
             } else {
-              tem = sortFn(propA, propB);
+              if (!propA && propA !== 0 || !propB && propB !== 0) {
+                if (!propB && !propA) {
+                  tem = 0;
+                } else if (!propA) {
+                  tem = 1;
+                } else if (!propB) {
+                  tem = -1;
+                }
+              } else {
+                res = sortFn(propA, propB);
+                tem = direction === ASC ? res : 0 - res;
+              }
             }
             indx++;
           }
-          if (direction === ASC) {
-            return tem;
-          } else {
-            return 0 - tem;
-          }
+          return tem;
         });
       };
       sortService.Sort = function (sortInfo, data) {
@@ -44370,6 +46381,7 @@ if (typeof jQuery === 'undefined') {
         } else if (col.sortingAlgorithm !== undefined) {
           sortFn = col.sortingAlgorithm;
           sortService.colSortFnCache[col.field] = col.sortingAlgorithm;
+          sortService.isCustomSort = true;
         } else {
           item = data[0];
           if (!item) {
@@ -44400,11 +46412,16 @@ if (typeof jQuery === 'undefined') {
               elem.style.visibility = 'hidden';
               document.body.appendChild(elem);
             }
-            $(elem).css('font', $(node).css('font'));
-            $(elem).css('font-size', $(node).css('font-size'));
-            $(elem).css('font-family', $(node).css('font-family'));
-            elem.innerHTML = $(node).text();
-            return elem.offsetWidth;
+            var $node = $(node);
+            $(elem).css({
+              'font': $node.css('font'),
+              'font-size': $node.css('font-size'),
+              'font-family': $node.css('font-family')
+            });
+            elem.innerHTML = $node.text();
+            var width = elem.offsetWidth;
+            document.body.removeChild(elem);
+            return width;
           },
           forIn: function (obj, action) {
             for (var prop in obj) {
@@ -44414,7 +46431,7 @@ if (typeof jQuery === 'undefined') {
             }
           },
           evalProperty: function (entity, path) {
-            return $parse(path)(entity);
+            return $parse('entity.' + path)({ entity: entity });
           },
           endsWith: function (str, suffix) {
             if (!str || !suffix || typeof str !== 'string') {
@@ -44429,16 +46446,20 @@ if (typeof jQuery === 'undefined') {
             return false;
           },
           getElementsByClassName: function (cl) {
-            var retnode = [];
-            var myclass = new RegExp('\\b' + cl + '\\b');
-            var elem = document.getElementsByTagName('*');
-            for (var i = 0; i < elem.length; i++) {
-              var classes = elem[i].className;
-              if (myclass.test(classes)) {
-                retnode.push(elem[i]);
+            if (document.getElementsByClassName) {
+              return document.getElementsByClassName(cl);
+            } else {
+              var retnode = [];
+              var myclass = new RegExp('\\b' + cl + '\\b');
+              var elem = document.getElementsByTagName('*');
+              for (var i = 0; i < elem.length; i++) {
+                var classes = elem[i].className;
+                if (myclass.test(classes)) {
+                  retnode.push(elem[i]);
+                }
               }
+              return retnode;
             }
-            return retnode;
           },
           newId: function () {
             var seedId = new Date().getTime();
@@ -44460,20 +46481,8 @@ if (typeof jQuery === 'undefined') {
             } else {
               return '';
             }
-          },
-          ieVersion: function () {
-            var version = 3, div = document.createElement('div'), iElems = div.getElementsByTagName('i');
-            do {
-              div.innerHTML = '<!--[if gt IE ' + ++version + ']><i></i><![endif]-->';
-            } while (iElems[0]);
-            return version > 4 ? version : undefined;
-          }()
+          }
         };
-      $.extend(utils, {
-        isIe: function () {
-          return utils.ieVersion !== undefined;
-        }()
-      });
       return utils;
     }
   ]);
@@ -44562,6 +46571,7 @@ if (typeof jQuery === 'undefined') {
     self.minWidth = !colDef.minWidth ? 50 : colDef.minWidth;
     self.maxWidth = !colDef.maxWidth ? 9000 : colDef.maxWidth;
     self.enableCellEdit = colDef.enableCellEdit !== undefined ? colDef.enableCellEdit : config.enableCellEdit || config.enableCellEditOnFocus;
+    self.cellEditableCondition = colDef.cellEditableCondition || config.cellEditableCondition || 'true';
     self.headerRowHeight = config.headerRowHeight;
     self.displayName = colDef.displayName === undefined ? colDef.field : colDef.displayName;
     self.index = config.index;
@@ -44570,7 +46580,7 @@ if (typeof jQuery === 'undefined') {
     self.sortPriority = undefined;
     self.cellFilter = colDef.cellFilter ? colDef.cellFilter : '';
     self.field = colDef.field;
-    self.aggLabelFilter = colDef.cellFilter || colDef.aggLabelFilter;
+    self.aggLabelFilter = colDef.aggLabelFilter || colDef.cellFilter;
     self.visible = $utils.isNullOrUndefined(colDef.visible) || colDef.visible;
     self.sortable = false;
     self.resizable = false;
@@ -44594,25 +46604,25 @@ if (typeof jQuery === 'undefined') {
     self.headerCellTemplate = colDef.headerCellTemplate || $templateCache.get('headerCellTemplate.html');
     self.cellTemplate = colDef.cellTemplate || $templateCache.get('cellTemplate.html').replace(CUSTOM_FILTERS, self.cellFilter ? '|' + self.cellFilter : '');
     if (self.enableCellEdit) {
-      self.cellEditTemplate = $templateCache.get('cellEditTemplate.html');
+      self.cellEditTemplate = colDef.cellEditTemplate || $templateCache.get('cellEditTemplate.html');
       self.editableCellTemplate = colDef.editableCellTemplate || $templateCache.get('editableCellTemplate.html');
     }
     if (colDef.cellTemplate && !TEMPLATE_REGEXP.test(colDef.cellTemplate)) {
-      self.cellTemplate = $.ajax({
+      self.cellTemplate = $templateCache.get(colDef.cellTemplate) || $.ajax({
         type: 'GET',
         url: colDef.cellTemplate,
         async: false
       }).responseText;
     }
     if (self.enableCellEdit && colDef.editableCellTemplate && !TEMPLATE_REGEXP.test(colDef.editableCellTemplate)) {
-      self.editableCellTemplate = $.ajax({
+      self.editableCellTemplate = $templateCache.get(colDef.editableCellTemplate) || $.ajax({
         type: 'GET',
         url: colDef.editableCellTemplate,
         async: false
       }).responseText;
     }
     if (colDef.headerCellTemplate && !TEMPLATE_REGEXP.test(colDef.headerCellTemplate)) {
-      self.headerCellTemplate = $.ajax({
+      self.headerCellTemplate = $templateCache.get(colDef.headerCellTemplate) || $.ajax({
         type: 'GET',
         url: colDef.headerCellTemplate,
         async: false
@@ -44693,7 +46703,7 @@ if (typeof jQuery === 'undefined') {
       return false;
     };
     self.copy = function () {
-      var ret = new ngColumn(config, $scope, grid, domUtilityService, $templateCache);
+      var ret = new ngColumn(config, $scope, grid, domUtilityService, $templateCache, $utils);
       ret.isClone = true;
       ret.orig = self;
       return ret;
@@ -44765,7 +46775,7 @@ if (typeof jQuery === 'undefined') {
   ngDomAccessProvider.prototype.selectionHandlers = function ($scope, elm) {
     var doingKeyDown = false;
     var self = this;
-    elm.bind('keydown', function (evt) {
+    function keydown(evt) {
       if (evt.keyCode === 16) {
         self.changeUserSelect(elm, 'none', evt);
         return true;
@@ -44776,12 +46786,18 @@ if (typeof jQuery === 'undefined') {
         return ret;
       }
       return true;
-    });
-    elm.bind('keyup', function (evt) {
+    }
+    elm.bind('keydown', keydown);
+    function keyup(evt) {
       if (evt.keyCode === 16) {
         self.changeUserSelect(elm, 'text', evt);
       }
       return true;
+    }
+    elm.bind('keyup', keyup);
+    elm.on('$destroy', function () {
+      elm.off('keydown', keydown);
+      elm.off('keyup', keyup);
     });
   };
   var ngEventProvider = function (grid, $scope, domUtilityService, $timeout) {
@@ -44796,16 +46812,34 @@ if (typeof jQuery === 'undefined') {
             self.onGroupDrop(event);
           }
         });
+        grid.$groupPanel.on('$destroy', function () {
+          grid.$groupPanel = null;
+        });
       } else {
         grid.$groupPanel.on('mousedown', self.onGroupMouseDown).on('dragover', self.dragOver).on('drop', self.onGroupDrop);
-        grid.$headerScroller.on('mousedown', self.onHeaderMouseDown).on('dragover', self.dragOver);
-        if (grid.config.enableColumnReordering && !grid.config.enablePinning) {
-          grid.$headerScroller.on('drop', self.onHeaderDrop);
+        grid.$topPanel.on('mousedown', '.ngHeaderScroller', self.onHeaderMouseDown).on('dragover', '.ngHeaderScroller', self.dragOver);
+        grid.$groupPanel.on('$destroy', function () {
+          if (grid.$groupPanel) {
+            grid.$groupPanel.off('mousedown');
+          }
+          grid.$groupPanel = null;
+        });
+        if (grid.config.enableColumnReordering) {
+          grid.$topPanel.on('drop', '.ngHeaderScroller', self.onHeaderDrop);
         }
+        grid.$topPanel.on('$destroy', function () {
+          if (grid.$topPanel) {
+            grid.$topPanel.off('mousedown');
+          }
+          if (grid.config.enableColumnReordering && grid.$topPanel) {
+            grid.$topPanel.off('drop');
+          }
+          grid.$topPanel = null;
+        });
       }
-      $scope.$watch('renderedColumns', function () {
+      $scope.$on('$destroy', $scope.$watch('renderedColumns', function () {
         $timeout(self.setDraggables);
-      });
+      }));
     };
     self.dragStart = function (evt) {
       evt.dataTransfer.setData('text', '');
@@ -44821,29 +46855,39 @@ if (typeof jQuery === 'undefined') {
             col.setAttribute('draggable', 'true');
             if (col.addEventListener) {
               col.addEventListener('dragstart', self.dragStart);
+              angular.element(col).on('$destroy', function () {
+                angular.element(col).off('dragstart', self.dragStart);
+                col.removeEventListener('dragstart', self.dragStart);
+              });
             }
           }
         });
         if (navigator.userAgent.indexOf('MSIE') !== -1) {
-          grid.$root.find('.ngHeaderSortColumn').bind('selectstart', function () {
+          var sortColumn = grid.$root.find('.ngHeaderSortColumn');
+          sortColumn.bind('selectstart', function () {
             this.dragDrop();
             return false;
           });
+          angular.element(sortColumn).on('$destroy', function () {
+            sortColumn.off('selectstart');
+          });
         }
       } else {
-        grid.$root.find('.ngHeaderSortColumn').draggable({
-          helper: 'clone',
-          appendTo: 'body',
-          stack: 'div',
-          addClasses: false,
-          start: function (event) {
-            self.onHeaderMouseDown(event);
-          }
-        }).droppable({
-          drop: function (event) {
-            self.onHeaderDrop(event);
-          }
-        });
+        if (grid.$root) {
+          grid.$root.find('.ngHeaderSortColumn').draggable({
+            helper: 'clone',
+            appendTo: 'body',
+            stack: 'div',
+            addClasses: false,
+            start: function (event) {
+              self.onHeaderMouseDown(event);
+            }
+          }).droppable({
+            drop: function (event) {
+              self.onHeaderDrop(event);
+            }
+          });
+        }
       }
     };
     self.onGroupMouseDown = function (event) {
@@ -44855,11 +46899,17 @@ if (typeof jQuery === 'undefined') {
             groupItem.attr('draggable', 'true');
             if (this.addEventListener) {
               this.addEventListener('dragstart', self.dragStart);
+              angular.element(this).on('$destroy', function () {
+                this.removeEventListener('dragstart', self.dragStart);
+              });
             }
             if (navigator.userAgent.indexOf('MSIE') !== -1) {
               groupItem.bind('selectstart', function () {
                 this.dragDrop();
                 return false;
+              });
+              groupItem.on('$destroy', function () {
+                groupItem.off('selectstart');
               });
             }
           }
@@ -44928,7 +46978,7 @@ if (typeof jQuery === 'undefined') {
       var headerContainer = $(event.target).closest('.ngHeaderSortColumn');
       var headerScope = angular.element(headerContainer).scope();
       if (headerScope) {
-        if (self.colToMove.col === headerScope.col) {
+        if (self.colToMove.col === headerScope.col || headerScope.col.pinned) {
           return;
         }
         $scope.columns.splice(self.colToMove.col.index, 1);
@@ -44946,18 +46996,23 @@ if (typeof jQuery === 'undefined') {
         grid.$viewport.attr('tabIndex', grid.config.tabIndex);
       }
       var windowThrottle;
-      $(window).resize(function () {
+      var windowResize = function () {
         clearTimeout(windowThrottle);
         windowThrottle = setTimeout(function () {
           domUtilityService.RebuildGrid($scope, grid);
         }, 100);
-      });
+      };
+      $(window).on('resize.nggrid', windowResize);
       var parentThrottle;
-      $(grid.$root.parent()).on('resize', function () {
+      var parentResize = function () {
         clearTimeout(parentThrottle);
         parentThrottle = setTimeout(function () {
           domUtilityService.RebuildGrid($scope, grid);
         }, 100);
+      };
+      $(grid.$root.parent()).on('resize.nggrid', parentResize);
+      $scope.$on('$destroy', function () {
+        $(window).off('resize.nggrid', windowResize);
       });
     };
     self.assignGridEventHandlers();
@@ -44968,9 +47023,15 @@ if (typeof jQuery === 'undefined') {
       var ret = Math.max($scope.totalServerItems, grid.data.length);
       return ret;
     };
+    $scope.$on('$destroy', $scope.$watch('totalServerItems', function (n, o) {
+      $scope.currentMaxPages = $scope.maxPages();
+    }));
     $scope.multiSelect = grid.config.enableRowSelection && grid.config.multiSelect;
     $scope.selectedItemCount = grid.selectedItemCount;
     $scope.maxPages = function () {
+      if ($scope.maxRows() === 0) {
+        return 1;
+      }
       return Math.ceil($scope.maxRows() / $scope.pagingOptions.pageSize);
     };
     $scope.pageForward = function () {
@@ -45045,6 +47106,7 @@ if (typeof jQuery === 'undefined') {
         },
         footerRowHeight: 55,
         footerTemplate: undefined,
+        forceSyncScrolling: true,
         groups: [],
         groupsCollapsedByDefault: true,
         headerRowHeight: 30,
@@ -45085,7 +47147,8 @@ if (typeof jQuery === 'undefined') {
         totalServerItems: 0,
         useExternalSorting: false,
         i18n: 'en',
-        virtualizationThreshold: 50
+        virtualizationThreshold: 50,
+        noTabInterference: false
       }, self = this;
     self.maxCanvasHt = 0;
     self.config = $.extend(defaults, window.ngGrid.config, options);
@@ -45257,7 +47320,8 @@ if (typeof jQuery === 'undefined') {
               enableResize: self.config.enableColumnResize,
               enableSort: self.config.enableSorting,
               enablePinning: self.config.enablePinning,
-              enableCellEdit: self.config.enableCellEdit || self.config.enableCellEditOnFocus
+              enableCellEdit: self.config.enableCellEdit || self.config.enableCellEditOnFocus,
+              cellEditableCondition: self.config.cellEditableCondition
             }, $scope, self, domUtilityService, $templateCache, $utils);
           var indx = self.config.groups.indexOf(colDef.field);
           if (indx !== -1) {
@@ -45304,9 +47368,9 @@ if (typeof jQuery === 'undefined') {
             ngColumn.width = ngColumn.minWidth;
             totalWidth += ngColumn.width;
             var temp = ngColumn;
-            $scope.$on('ngGridEventData', function () {
+            $scope.$on('$destroy', $scope.$on('ngGridEventData', function () {
               self.resizeOnData(temp);
-            });
+            }));
             return;
           } else if (t.indexOf('*') !== -1) {
             if (ngColumn.visible !== false) {
@@ -45330,8 +47394,7 @@ if (typeof jQuery === 'undefined') {
         var hiddenPercent = 0;
         angular.forEach(percentArray, function (colDef) {
           var ngColumn = $scope.columns[indexMap[colDef.index]];
-          var t = colDef.width;
-          var percent = parseInt(t.slice(0, -1), 10) / 100;
+          var percent = parseFloat(colDef.width) / 100;
           percentWidth += percent;
           if (!ngColumn.visible) {
             hiddenPercent += percent;
@@ -45340,15 +47403,14 @@ if (typeof jQuery === 'undefined') {
         var percentWidthUsed = percentWidth - hiddenPercent;
         angular.forEach(percentArray, function (colDef) {
           var ngColumn = $scope.columns[indexMap[colDef.index]];
-          var t = colDef.width;
-          var percent = parseInt(t.slice(0, -1), 10) / 100;
+          var percent = parseFloat(colDef.width) / 100;
           if (hiddenPercent > 0) {
             percent = percent / percentWidthUsed;
           } else {
             percent = percent / percentWidth;
           }
           var pixelsForPercentBasedWidth = self.rootDim.outerWidth * percentWidth;
-          ngColumn.width = Math.floor(pixelsForPercentBasedWidth * percent);
+          ngColumn.width = pixelsForPercentBasedWidth * percent;
           totalWidth += ngColumn.width;
         });
       }
@@ -45383,7 +47445,7 @@ if (typeof jQuery === 'undefined') {
         self.rowFactory = new ngRowFactory(self, $scope, domUtilityService, $templateCache, $utils);
         self.searchProvider = new ngSearchProvider($scope, self, $filter);
         self.styleProvider = new ngStyleProvider($scope, self);
-        $scope.$watch('configGroups', function (a) {
+        $scope.$on('$destroy', $scope.$watch('configGroups', function (a) {
           var tempArr = [];
           angular.forEach(a, function (item) {
             tempArr.push(item.field || item);
@@ -45391,28 +47453,28 @@ if (typeof jQuery === 'undefined') {
           self.config.groups = tempArr;
           self.rowFactory.filteredRowsChanged();
           $scope.$emit('ngGridEventGroups', a);
-        }, true);
-        $scope.$watch('columns', function (a) {
+        }, true));
+        $scope.$on('$destroy', $scope.$watch('columns', function (a) {
           if (!$scope.isColumnResizing) {
             domUtilityService.RebuildGrid($scope, self);
           }
           $scope.$emit('ngGridEventColumns', a);
-        }, true);
-        $scope.$watch(function () {
+        }, true));
+        $scope.$on('$destroy', $scope.$watch(function () {
           return options.i18n;
         }, function (newLang) {
           $utils.seti18n($scope, newLang);
-        });
+        }));
         self.maxCanvasHt = self.calcMaxCanvasHeight();
         if (self.config.sortInfo.fields && self.config.sortInfo.fields.length > 0) {
-          $scope.$watch(function () {
+          $scope.$on('$destroy', $scope.$watch(function () {
             return self.config.sortInfo;
           }, function (sortInfo) {
             if (!sortService.isSorting) {
               self.sortColumnsInit();
               $scope.$emit('ngGridEventSorted', self.config.sortInfo);
             }
-          }, true);
+          }, true));
         }
       });
     };
@@ -45451,7 +47513,7 @@ if (typeof jQuery === 'undefined') {
         } else {
           self.config.sortInfo.directions[indx] = col.sortDirection;
         }
-      } else {
+      } else if (!self.config.useExternalSorting || self.config.useExternalSorting && self.config.sortInfo) {
         var isArr = $.isArray(col);
         self.config.sortInfo.columns.length = 0;
         self.config.sortInfo.fields.length = 0;
@@ -45463,7 +47525,6 @@ if (typeof jQuery === 'undefined') {
           self.lastSortedColumns.push(c);
         };
         if (isArr) {
-          self.clearSortingData();
           angular.forEach(col, function (c, i) {
             c.sortPriority = i + 1;
             push(c);
@@ -45473,10 +47534,10 @@ if (typeof jQuery === 'undefined') {
           col.sortPriority = undefined;
           push(col);
         }
+        self.sortActual();
+        self.searchProvider.evalFilter();
+        $scope.$emit('ngGridEventSorted', self.config.sortInfo);
       }
-      self.sortActual();
-      self.searchProvider.evalFilter();
-      $scope.$emit('ngGridEventSorted', self.config.sortInfo);
     };
     self.sortColumnsInit = function () {
       if (self.config.sortInfo.columns) {
@@ -45484,16 +47545,19 @@ if (typeof jQuery === 'undefined') {
       } else {
         self.config.sortInfo.columns = [];
       }
+      var cols = [];
       angular.forEach($scope.columns, function (c) {
         var i = self.config.sortInfo.fields.indexOf(c.field);
         if (i !== -1) {
           c.sortDirection = self.config.sortInfo.directions[i] || 'asc';
-          self.config.sortInfo.columns[i] = c;
+          cols[i] = c;
         }
       });
-      angular.forEach(self.config.sortInfo.columns, function (c) {
-        self.sortData(c);
-      });
+      if (cols.length === 1) {
+        self.sortData(cols[0]);
+      } else {
+        self.sortData(cols);
+      }
     };
     self.sortActual = function () {
       if (!self.config.useExternalSorting) {
@@ -45562,6 +47626,7 @@ if (typeof jQuery === 'undefined') {
     $scope.showFooter = self.config.showFooter;
     $scope.footerRowHeight = $scope.showFooter ? self.config.footerRowHeight : 0;
     $scope.showColumnMenu = self.config.showColumnMenu;
+    $scope.forceSyncScrolling = self.config.forceSyncScrolling;
     $scope.showMenu = false;
     $scope.configGroups = [];
     $scope.gridId = self.gridId;
@@ -45627,7 +47692,7 @@ if (typeof jQuery === 'undefined') {
         }
         newRange = new ngRange(Math.max(0, rowIndex - EXCESS_ROWS), rowIndex + self.minRowsToRender() + EXCESS_ROWS);
       } else {
-        var maxLen = $scope.configGroups.length > 0 ? self.rowFactory.parsedData.length : self.data.length;
+        var maxLen = $scope.configGroups.length > 0 ? self.rowFactory.parsedData.length : self.filteredRows.length;
         newRange = new ngRange(0, Math.max(maxLen, self.minRowsToRender() + EXCESS_ROWS));
       }
       self.prevScrollTop = scrollTop;
@@ -45738,7 +47803,7 @@ if (typeof jQuery === 'undefined') {
     this.rowIndex = rowIndex;
     this.utils = $utils;
     this.selected = selectionProvider.getSelection(entity);
-    this.cursor = this.config.enableRowSelection ? 'pointer' : 'default';
+    this.cursor = this.config.enableRowSelection && !this.config.selectWithCheckboxOnly ? 'pointer' : 'default';
     this.beforeSelectionChange = config.beforeSelectionChangeCallback;
     this.afterSelectionChange = config.afterSelectionChangeCallback;
     this.offsetTop = this.rowIndex * config.rowHeight;
@@ -46022,6 +48087,15 @@ if (typeof jQuery === 'undefined') {
     $scope.showFilter = grid.config.showFilter;
     $scope.filterText = '';
     self.fieldMap = {};
+    var convertToFieldMap = function (obj) {
+      var fieldMap = {};
+      for (var prop in obj) {
+        if (obj.hasOwnProperty(prop)) {
+          fieldMap[prop.toLowerCase()] = obj[prop];
+        }
+      }
+      return fieldMap;
+    };
     var searchEntireRow = function (condition, item, fieldMap) {
       var result;
       for (var prop in item) {
@@ -46031,8 +48105,12 @@ if (typeof jQuery === 'undefined') {
             continue;
           }
           var pVal = item[prop];
-          if (typeof pVal === 'object') {
-            return searchEntireRow(condition, pVal, c);
+          if (typeof pVal === 'object' && !(pVal instanceof Date)) {
+            var objectFieldMap = convertToFieldMap(c);
+            result = searchEntireRow(condition, pVal, objectFieldMap);
+            if (result) {
+              return true;
+            }
           } else {
             var f = null, s = null;
             if (c && c.cellFilter) {
@@ -46041,7 +48119,7 @@ if (typeof jQuery === 'undefined') {
             }
             if (pVal !== null && pVal !== undefined) {
               if (typeof f === 'function') {
-                var filterRes = f(pVal, s[1]).toString();
+                var filterRes = f(pVal, s[1].slice(1, -1)).toString();
                 result = condition.regex.test(filterRes);
               } else {
                 result = condition.regex.test(pVal.toString());
@@ -46161,7 +48239,7 @@ if (typeof jQuery === 'undefined') {
       }
     };
     if (!self.extFilter) {
-      $scope.$watch('columns', function (cs) {
+      $scope.$on('$destroy', $scope.$watch('columns', function (cs) {
         for (var i = 0; i < cs.length; i++) {
           var col = cs[i];
           if (col.field) {
@@ -46181,20 +48259,20 @@ if (typeof jQuery === 'undefined') {
             self.fieldMap[col.displayName.toLowerCase().replace(/\s+/g, '')] = col;
           }
         }
-      });
+      }));
     }
-    $scope.$watch(function () {
+    $scope.$on('$destroy', $scope.$watch(function () {
       return grid.config.filterOptions.filterText;
     }, function (a) {
       $scope.filterText = a;
-    });
-    $scope.$watch('filterText', function (a) {
+    }));
+    $scope.$on('$destroy', $scope.$watch('filterText', function (a) {
       if (!self.extFilter) {
         $scope.$emit('ngGridEventFilter', a);
         buildSearchConditions(a);
         self.evalFilter();
       }
-    });
+    }));
   };
   var ngSelectionProvider = function (grid, $scope, $parse) {
     var self = this;
@@ -46272,28 +48350,31 @@ if (typeof jQuery === 'undefined') {
       return true;
     };
     self.getSelection = function (entity) {
-      var isSelected = false;
+      return self.getSelectionIndex(entity) !== -1;
+    };
+    self.getSelectionIndex = function (entity) {
+      var index = -1;
       if (grid.config.primaryKey) {
         var val = self.pKeyParser(entity);
-        angular.forEach(self.selectedItems, function (c) {
+        angular.forEach(self.selectedItems, function (c, k) {
           if (val === self.pKeyParser(c)) {
-            isSelected = true;
+            index = k;
           }
         });
       } else {
-        isSelected = self.selectedItems.indexOf(entity) !== -1;
+        index = self.selectedItems.indexOf(entity);
       }
-      return isSelected;
+      return index;
     };
     self.setSelection = function (rowItem, isSelected) {
       if (grid.config.enableRowSelection) {
         if (!isSelected) {
-          var indx = self.selectedItems.indexOf(rowItem.entity);
+          var indx = self.getSelectionIndex(rowItem.entity);
           if (indx !== -1) {
             self.selectedItems.splice(indx, 1);
           }
         } else {
-          if (self.selectedItems.indexOf(rowItem.entity) === -1) {
+          if (self.getSelectionIndex(rowItem.entity) === -1) {
             if (!self.multi && self.selectedItems.length > 0) {
               self.toggleSelectAll(false, true);
             }
@@ -46390,10 +48471,11 @@ if (typeof jQuery === 'undefined') {
         $scope.isFocused = true;
         domUtilityService.digest($scope);
         $scope.$broadcast('ngGridEventStartCellEdit');
-        $scope.$on('ngGridEventEndCellEdit', function () {
+        $scope.$emit('ngGridEventStartCellEdit');
+        $scope.$on('$destroy', $scope.$on('ngGridEventEndCellEdit', function () {
           $scope.isFocused = false;
           domUtilityService.digest($scope);
-        });
+        }));
       };
       return function ($scope, elm) {
         var isFocused = false;
@@ -46405,33 +48487,37 @@ if (typeof jQuery === 'undefined') {
             }, 0);
           }
         };
-        elm.bind('mousedown', function (evt) {
+        function mousedown(evt) {
           if ($scope.enableCellEditOnFocus) {
             isCellEditableOnMouseDown = true;
           } else {
             elm.focus();
           }
           return true;
-        });
-        elm.bind('click', function (evt) {
+        }
+        function click(evt) {
           if ($scope.enableCellEditOnFocus) {
             evt.preventDefault();
             isCellEditableOnMouseDown = false;
             focusOnInputElement($scope, elm);
           }
-        });
-        elm.bind('focus', function (evt) {
+        }
+        elm.bind('mousedown', mousedown);
+        elm.bind('click', click);
+        function focus(evt) {
           isFocused = true;
           if ($scope.enableCellEditOnFocus && !isCellEditableOnMouseDown) {
             focusOnInputElement($scope, elm);
           }
           return true;
-        });
-        elm.bind('blur', function () {
+        }
+        elm.bind('focus', focus);
+        function blur() {
           isFocused = false;
           return true;
-        });
-        elm.bind('keydown', function (evt) {
+        }
+        elm.bind('blur', blur);
+        function keydown(evt) {
           if (!$scope.enableCellEditOnFocus) {
             if (isFocused && evt.keyCode !== 37 && evt.keyCode !== 38 && evt.keyCode !== 39 && evt.keyCode !== 40 && evt.keyCode !== 9 && !evt.shiftKey && evt.keyCode !== 13) {
               focusOnInputElement($scope, elm);
@@ -46444,19 +48530,31 @@ if (typeof jQuery === 'undefined') {
             }
           }
           return true;
+        }
+        elm.bind('keydown', keydown);
+        elm.on('$destroy', function () {
+          elm.off('mousedown', mousedown);
+          elm.off('click', click);
+          elm.off('focus', focus);
+          elm.off('blur', blur);
+          elm.off('keydown', keydown);
         });
       };
     }
   ]);
   ngGridDirectives.directive('ngCellText', function () {
     return function (scope, elm) {
-      elm.bind('mouseover', function (evt) {
+      function mouseover(evt) {
         evt.preventDefault();
-        elm.css({ 'cursor': 'text' });
-      });
-      elm.bind('mouseleave', function (evt) {
+      }
+      elm.bind('mouseover', mouseover);
+      function mouseleave(evt) {
         evt.preventDefault();
-        elm.css({ 'cursor': 'default' });
+      }
+      elm.bind('mouseleave', mouseleave);
+      elm.on('$destroy', function () {
+        elm.off('mouseover', mouseover);
+        elm.off('mouseleave', mouseleave);
       });
     };
   });
@@ -46473,25 +48571,27 @@ if (typeof jQuery === 'undefined') {
                 var cellTemplate = $scope.col.cellTemplate.replace(COL_FIELD, 'row.entity.' + $scope.col.field);
                 if ($scope.col.enableCellEdit) {
                   html = $scope.col.cellEditTemplate;
+                  html = html.replace(CELL_EDITABLE_CONDITION, $scope.col.cellEditableCondition);
                   html = html.replace(DISPLAY_CELL_TEMPLATE, cellTemplate);
                   html = html.replace(EDITABLE_CELL_TEMPLATE, $scope.col.editableCellTemplate.replace(COL_FIELD, 'row.entity.' + $scope.col.field));
                 } else {
                   html = cellTemplate;
                 }
-                var cellElement = $compile(html)($scope);
+                var cellElement = $(html);
+                iElement.append(cellElement);
+                $compile(cellElement)($scope);
                 if ($scope.enableCellSelection && cellElement[0].className.indexOf('ngSelectionCell') === -1) {
                   cellElement[0].setAttribute('tabindex', 0);
                   cellElement.addClass('ngCellElement');
                 }
-                iElement.append(cellElement);
               },
               post: function ($scope, iElement) {
                 if ($scope.enableCellSelection) {
                   $scope.domAccessProvider.selectionHandlers($scope, iElement);
                 }
-                $scope.$on('ngGridEventDigestCell', function () {
+                $scope.$on('$destroy', $scope.$on('ngGridEventDigestCell', function () {
                   domUtilityService.digest($scope);
-                });
+                }));
               }
             };
           }
@@ -46509,7 +48609,7 @@ if (typeof jQuery === 'undefined') {
           return function (scope, element, attr) {
             var childElement;
             var childScope;
-            scope.$watch(attr['ngEditCellIf'], function (newValue) {
+            scope.$on('$destroy', scope.$watch(attr['ngEditCellIf'], function (newValue) {
               if (childElement) {
                 childElement.remove();
                 childElement = undefined;
@@ -46525,7 +48625,7 @@ if (typeof jQuery === 'undefined') {
                   element.after(clone);
                 });
               }
-            });
+            }));
           };
         }
       };
@@ -46592,9 +48692,25 @@ if (typeof jQuery === 'undefined') {
                   outerWidth: $($element).width()
                 });
                 var grid = new ngGrid($scope, options, sortService, domUtilityService, $filter, $templateCache, $utils, $timeout, $parse, $http, $q);
+                $scope.$on('$destroy', function cleanOptions() {
+                  options.gridDim = null;
+                  options.selectRow = null;
+                  options.selectItem = null;
+                  options.selectAll = null;
+                  options.selectVisible = null;
+                  options.groupBy = null;
+                  options.sortBy = null;
+                  options.gridId = null;
+                  options.ngGrid = null;
+                  options.$gridScope = null;
+                  options.$gridServices = null;
+                  $scope.domAccessProvider.grid = null;
+                  angular.element(grid.styleSheet).remove();
+                  grid.styleSheet = null;
+                });
                 return grid.init().then(function () {
                   if (typeof options.columnDefs === 'string') {
-                    $scope.$parent.$watch(options.columnDefs, function (a) {
+                    $scope.$on('$destroy', $scope.$parent.$watch(options.columnDefs, function (a) {
                       if (!a) {
                         grid.refreshDomSizes();
                         grid.buildColumns();
@@ -46606,18 +48722,18 @@ if (typeof jQuery === 'undefined') {
                       grid.buildColumns();
                       grid.eventProvider.assignEvents();
                       domUtilityService.RebuildGrid($scope, grid);
-                    }, true);
+                    }, true));
                   } else {
                     grid.buildColumns();
                   }
                   if (typeof options.totalServerItems === 'string') {
-                    $scope.$parent.$watch(options.totalServerItems, function (newTotal, oldTotal) {
+                    $scope.$on('$destroy', $scope.$parent.$watch(options.totalServerItems, function (newTotal, oldTotal) {
                       if (!angular.isDefined(newTotal)) {
                         $scope.totalServerItems = 0;
                       } else {
                         $scope.totalServerItems = newTotal;
                       }
-                    });
+                    }));
                   } else {
                     $scope.totalServerItems = 0;
                   }
@@ -46641,10 +48757,11 @@ if (typeof jQuery === 'undefined') {
                       }
                       $scope.$emit('ngGridEventData', grid.gridId);
                     };
-                    $scope.$parent.$watch(options.data, dataWatcher);
-                    $scope.$parent.$watch(options.data + '.length', function () {
+                    $scope.$on('$destroy', $scope.$parent.$watch(options.data, dataWatcher));
+                    $scope.$on('$destroy', $scope.$parent.$watch(options.data + '.length', function () {
                       dataWatcher($scope.$eval(options.data));
-                    });
+                      $scope.adjustScrollTop(grid.$viewport.scrollTop(), true);
+                    }));
                   }
                   grid.footerController = new ngFooter($scope, grid);
                   iElement.addClass('ngGrid').addClass(grid.gridId.toString());
@@ -46700,12 +48817,12 @@ if (typeof jQuery === 'undefined') {
                     DomUtilityService: domUtilityService,
                     UtilityService: $utils
                   };
-                  $scope.$on('ngGridEventDigestGrid', function () {
+                  $scope.$on('$destroy', $scope.$on('ngGridEventDigestGrid', function () {
                     domUtilityService.digest($scope.$parent);
-                  });
-                  $scope.$on('ngGridEventDigestGridParent', function () {
+                  }));
+                  $scope.$on('$destroy', $scope.$on('ngGridEventDigestGridParent', function () {
                     domUtilityService.digest($scope.$parent);
-                  });
+                  }));
                   $scope.$evalAsync(function () {
                     $scope.adjustScrollLeft(0);
                   });
@@ -46713,8 +48830,12 @@ if (typeof jQuery === 'undefined') {
                     if (typeof p === 'function') {
                       p = new p();
                     }
-                    p.init($scope.$new(), grid, options.$gridServices);
+                    var newScope = $scope.$new();
+                    p.init(newScope, grid, options.$gridServices);
                     options.plugins[$utils.getInstanceType(p)] = p;
+                    $scope.$on('$destroy', function () {
+                      newScope.$destroy();
+                    });
                   });
                   if (typeof options.init === 'function') {
                     options.init(grid, $scope);
@@ -46744,6 +48865,25 @@ if (typeof jQuery === 'undefined') {
       return ngHeaderCell;
     }
   ]);
+  ngGridDirectives.directive('ngHeaderRow', [
+    '$compile',
+    '$templateCache',
+    function ($compile, $templateCache) {
+      var ngHeaderRow = {
+          scope: false,
+          compile: function () {
+            return {
+              pre: function ($scope, iElement) {
+                if (iElement.children().length === 0) {
+                  iElement.append($compile($templateCache.get($scope.gridId + 'headerRowTemplate.html'))($scope));
+                }
+              }
+            };
+          }
+        };
+      return ngHeaderRow;
+    }
+  ]);
   ngGridDirectives.directive('ngInput', [function () {
       return {
         require: 'ngModel',
@@ -46753,7 +48893,7 @@ if (typeof jQuery === 'undefined') {
               oldCellValue = ngModel.$modelValue;
               dereg();
             });
-          elm.bind('keydown', function (evt) {
+          function keydown(evt) {
             switch (evt.keyCode) {
             case 37:
             case 38:
@@ -46770,23 +48910,31 @@ if (typeof jQuery === 'undefined') {
               }
               break;
             case 13:
-              if (scope.enableCellEditOnFocus && scope.totalFilteredItemsLength() - 1 > scope.row.rowIndex && scope.row.rowIndex > 0 || scope.enableCellEdit) {
+              if (scope.enableCellEditOnFocus && scope.totalFilteredItemsLength() - 1 > scope.row.rowIndex && scope.row.rowIndex > 0 || scope.col.enableCellEdit) {
                 elm.blur();
               }
               break;
             }
             return true;
-          });
-          elm.bind('click', function (evt) {
+          }
+          elm.bind('keydown', keydown);
+          function click(evt) {
             evt.stopPropagation();
-          });
-          elm.bind('mousedown', function (evt) {
+          }
+          elm.bind('click', click);
+          function mousedown(evt) {
             evt.stopPropagation();
+          }
+          elm.bind('mousedown', mousedown);
+          elm.on('$destroy', function () {
+            elm.off('keydown', keydown);
+            elm.off('click', click);
+            elm.off('mousedown', mousedown);
           });
-          scope.$on('ngGridEventStartCellEdit', function () {
+          scope.$on('$destroy', scope.$on('ngGridEventStartCellEdit', function () {
             elm.focus();
             elm.select();
-          });
+          }));
           angular.element(elm).bind('blur', function () {
             scope.$emit('ngGridEventEndCellEdit');
           });
@@ -46818,9 +48966,9 @@ if (typeof jQuery === 'undefined') {
                 } else {
                   iElement.append($compile($templateCache.get($scope.gridId + 'rowTemplate.html'))($scope));
                 }
-                $scope.$on('ngGridEventDigestRow', function () {
+                $scope.$on('$destroy', $scope.$on('ngGridEventDigestRow', function () {
                   domUtilityService.digest($scope);
-                });
+                }));
               }
             };
           }
@@ -46833,27 +48981,42 @@ if (typeof jQuery === 'undefined') {
         var isMouseWheelActive;
         var prevScollLeft;
         var prevScollTop = 0;
-        elm.bind('scroll', function (evt) {
+        var ensureDigest = function () {
+          if (!$scope.$root.$$phase) {
+            $scope.$digest();
+          }
+        };
+        var scrollTimer;
+        function scroll(evt) {
           var scrollLeft = evt.target.scrollLeft, scrollTop = evt.target.scrollTop;
           if ($scope.$headerContainer) {
             $scope.$headerContainer.scrollLeft(scrollLeft);
           }
           $scope.adjustScrollLeft(scrollLeft);
           $scope.adjustScrollTop(scrollTop);
-          if (!$scope.$root.$$phase) {
-            $scope.$digest();
+          if ($scope.forceSyncScrolling) {
+            ensureDigest();
+          } else {
+            clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(ensureDigest, 150);
           }
           prevScollLeft = scrollLeft;
           prevScollTop = scrollTop;
           isMouseWheelActive = false;
           return true;
-        });
-        elm.bind('mousewheel DOMMouseScroll', function () {
+        }
+        elm.bind('scroll', scroll);
+        function mousewheel() {
           isMouseWheelActive = true;
           if (elm.focus) {
             elm.focus();
           }
           return true;
+        }
+        elm.bind('mousewheel DOMMouseScroll', mousewheel);
+        elm.on('$destroy', function () {
+          elm.off('scroll', scroll);
+          elm.off('mousewheel DOMMouseScroll', mousewheel);
         });
         if (!$scope.enableCellSelection) {
           $scope.domAccessProvider.selectionHandlers($scope, elm);
@@ -46875,18 +49038,18 @@ if (typeof jQuery === 'undefined') {
     ngPagerLastTitle: 'Sidste side'
   };
   window.ngGrid.i18n['de'] = {
-    ngAggregateLabel: 'artikel',
-    ngGroupPanelDescription: 'Ziehen Sie eine Spalten\xfcberschrift hier und legen Sie es der Gruppe nach dieser Spalte.',
+    ngAggregateLabel: 'eintrag',
+    ngGroupPanelDescription: 'Ziehen Sie eine Spalten\xfcberschrift hierhin um nach dieser Spalte zu gruppieren.',
     ngSearchPlaceHolder: 'Suche...',
     ngMenuText: 'Spalten ausw\xe4hlen:',
-    ngShowingItemsLabel: 'Zeige Artikel:',
-    ngTotalItemsLabel: 'Meiste Artikel:',
-    ngSelectedItemsLabel: 'Ausgew\xe4hlte Artikel:',
-    ngPageSizeLabel: 'Gr\xf6\xdfe Seite:',
-    ngPagerFirstTitle: 'Erste Page',
-    ngPagerNextTitle: 'N\xe4chste Page',
-    ngPagerPrevTitle: 'Vorherige Page',
-    ngPagerLastTitle: 'Letzte Page'
+    ngShowingItemsLabel: 'Zeige Eintr\xe4ge:',
+    ngTotalItemsLabel: 'Eintr\xe4ge gesamt:',
+    ngSelectedItemsLabel: 'Ausgew\xe4hlte Eintr\xe4ge:',
+    ngPageSizeLabel: 'Eintr\xe4ge pro Seite:',
+    ngPagerFirstTitle: 'Erste Seite',
+    ngPagerNextTitle: 'N\xe4chste Seite',
+    ngPagerPrevTitle: 'Vorherige Seite',
+    ngPagerLastTitle: 'Letzte Seite'
   };
   window.ngGrid.i18n['en'] = {
     ngAggregateLabel: 'items',
@@ -46916,6 +49079,20 @@ if (typeof jQuery === 'undefined') {
     ngPagerPrevTitle: 'P\xe1gina Anterior',
     ngPagerLastTitle: '\xdaltima P\xe1gina'
   };
+  window.ngGrid.i18n['fa'] = {
+    ngAggregateLabel: '\u0645\u0648\u0631\u062f\u0647\u0627',
+    ngGroupPanelDescription: '\u06cc\u06a9 \u0639\u0646\u0648\u0627\u0646 \u0633\u062a\u0648\u0646 \u0627\u06cc\u0646\u062c\u0627 \u0631\u0627 \u0628\u0631\u062f\u0627\u0631 \u0648 \u0628\u0647 \u06af\u0631\u0648\u0647\u06cc \u0627\u0632 \u0622\u0646 \u0633\u062a\u0648\u0646 \u0628\u06cc\u0627\u0646\u062f\u0627\u0632.',
+    ngSearchPlaceHolder: '\u062c\u0633\u062a\u062c\u0648...',
+    ngMenuText: '\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u062a\u0648\u0646\u200c\u0647\u0627:',
+    ngShowingItemsLabel: '\u0646\u0645\u0627\u06cc\u0634 \u0645\u0648\u0631\u062f\u0647\u0627:',
+    ngTotalItemsLabel: '\u0647\u0645\u0647\u0654 \u0645\u0648\u0631\u062f\u0647\u0627:',
+    ngSelectedItemsLabel: '\u0645\u0648\u0631\u062f\u0647\u0627\u06cc \u0627\u0646\u062a\u062e\u0627\u0628\u200c\u0634\u062f\u0647:',
+    ngPageSizeLabel: '\u0627\u0646\u062f\u0627\u0632\u0647\u0654 \u0635\u0641\u062d\u0647:',
+    ngPagerFirstTitle: '\u0635\u0641\u062d\u0647\u0654 \u0627\u0648\u0644',
+    ngPagerNextTitle: '\u0635\u0641\u062d\u0647\u0654 \u0628\u0639\u062f',
+    ngPagerPrevTitle: '\u0635\u0641\u062d\u0647\u0654 \u0642\u0628\u0644',
+    ngPagerLastTitle: '\u0622\u062e\u0631\u06cc\u0646 \u0635\u0641\u062d\u0647'
+  };
   window.ngGrid.i18n['fr'] = {
     ngAggregateLabel: 'articles',
     ngGroupPanelDescription: 'Faites glisser un en-t\xeate de colonne ici et d\xe9posez-le vers un groupe par cette colonne.',
@@ -46930,13 +49107,27 @@ if (typeof jQuery === 'undefined') {
     ngPagerPrevTitle: 'Page pr\xe9c\xe9dente',
     ngPagerLastTitle: 'Derni\xe8re page'
   };
-  window.ngGrid.i18n['pt-br'] = {
+  window.ngGrid.i18n['nl'] = {
     ngAggregateLabel: 'items',
+    ngGroupPanelDescription: 'Sleep hier een kolomkop om op te groeperen.',
+    ngSearchPlaceHolder: 'Zoeken...',
+    ngMenuText: 'Kies kolommen:',
+    ngShowingItemsLabel: 'Toon items:',
+    ngTotalItemsLabel: 'Totaal items:',
+    ngSelectedItemsLabel: 'Geselecteerde items:',
+    ngPageSizeLabel: 'Pagina grootte:, ',
+    ngPagerFirstTitle: 'Eerste pagina',
+    ngPagerNextTitle: 'Volgende pagina',
+    ngPagerPrevTitle: 'Vorige pagina',
+    ngPagerLastTitle: 'Laatste pagina'
+  };
+  window.ngGrid.i18n['pt-br'] = {
+    ngAggregateLabel: 'itens',
     ngGroupPanelDescription: 'Arraste e solte uma coluna aqui para agrupar por essa coluna',
     ngSearchPlaceHolder: 'Procurar...',
     ngMenuText: 'Selecione as colunas:',
-    ngShowingItemsLabel: 'Mostrando os Items:',
-    ngTotalItemsLabel: 'Total de Items:',
+    ngShowingItemsLabel: 'Mostrando os Itens:',
+    ngTotalItemsLabel: 'Total de Itens:',
     ngSelectedItemsLabel: 'Items Selecionados:',
     ngPageSizeLabel: 'Tamanho da P\xe1gina:',
     ngPagerFirstTitle: 'Primeira P\xe1gina',
@@ -46975,18 +49166,19 @@ if (typeof jQuery === 'undefined') {
   angular.module('ngGrid').run([
     '$templateCache',
     function ($templateCache) {
-      $templateCache.put('aggregateTemplate.html', '<div ng-click="row.toggleExpand()" ng-style="rowStyle(row)" class="ngAggregate">' + '    <span class="ngAggregateText">{{row.label CUSTOM_FILTERS}} ({{row.totalChildren()}} {{AggItemsLabel}})</span>' + '    <div class="{{row.aggClass()}}"></div>' + '</div>' + '');
-      $templateCache.put('cellEditTemplate.html', '<div ng-cell-has-focus ng-dblclick="editCell()">' + '\t<div ng-edit-cell-if="!isFocused">\t' + '\t\tDISPLAY_CELL_TEMPLATE' + '\t</div>' + '\t<div ng-edit-cell-if="isFocused">' + '\t\tEDITABLE_CELL_TEMPLATE' + '\t</div>' + '</div>');
+      'use strict';
+      $templateCache.put('aggregateTemplate.html', '<div ng-click="row.toggleExpand()" ng-style="rowStyle(row)" class="ngAggregate">\r' + '\n' + '    <span class="ngAggregateText">{{row.label CUSTOM_FILTERS}} ({{row.totalChildren()}} {{AggItemsLabel}})</span>\r' + '\n' + '    <div class="{{row.aggClass()}}"></div>\r' + '\n' + '</div>\r' + '\n');
+      $templateCache.put('cellEditTemplate.html', '<div ng-cell-has-focus ng-dblclick="CELL_EDITABLE_CONDITION && editCell()">\r' + '\n' + '\t<div ng-edit-cell-if="!(isFocused && CELL_EDITABLE_CONDITION)">\t\r' + '\n' + '\t\tDISPLAY_CELL_TEMPLATE\r' + '\n' + '\t</div>\r' + '\n' + '\t<div ng-edit-cell-if="isFocused && CELL_EDITABLE_CONDITION">\r' + '\n' + '\t\tEDITABLE_CELL_TEMPLATE\r' + '\n' + '\t</div>\r' + '\n' + '</div>\r' + '\n');
       $templateCache.put('cellTemplate.html', '<div class="ngCellText" ng-class="col.colIndex()"><span ng-cell-text>{{COL_FIELD CUSTOM_FILTERS}}</span></div>');
       $templateCache.put('checkboxCellTemplate.html', '<div class="ngSelectionCell"><input tabindex="-1" class="ngSelectionCheckbox" type="checkbox" ng-checked="row.selected" /></div>');
       $templateCache.put('checkboxHeaderTemplate.html', '<input class="ngSelectionHeader" type="checkbox" ng-show="multiSelect" ng-model="allSelected" ng-change="toggleSelectAll(allSelected, true)"/>');
       $templateCache.put('editableCellTemplate.html', '<input ng-class="\'colt\' + col.index" ng-input="COL_FIELD" ng-model="COL_FIELD" />');
-      $templateCache.put('footerTemplate.html', '<div ng-show="showFooter" class="ngFooterPanel" ng-class="{\'ui-widget-content\': jqueryUITheme, \'ui-corner-bottom\': jqueryUITheme}" ng-style="footerStyle()">' + '    <div class="ngTotalSelectContainer" >' + '        <div class="ngFooterTotalItems" ng-class="{\'ngNoMultiSelect\': !multiSelect}" >' + '            <span class="ngLabel">{{i18n.ngTotalItemsLabel}} {{maxRows()}}</span><span ng-show="filterText.length > 0" class="ngLabel">({{i18n.ngShowingItemsLabel}} {{totalFilteredItemsLength()}})</span>' + '        </div>' + '        <div class="ngFooterSelectedItems" ng-show="multiSelect">' + '            <span class="ngLabel">{{i18n.ngSelectedItemsLabel}} {{selectedItems.length}}</span>' + '        </div>' + '    </div>' + '    <div class="ngPagerContainer" style="float: right; margin-top: 10px;" ng-show="enablePaging" ng-class="{\'ngNoMultiSelect\': !multiSelect}">' + '        <div style="float:left; margin-right: 10px;" class="ngRowCountPicker">' + '            <span style="float: left; margin-top: 3px;" class="ngLabel">{{i18n.ngPageSizeLabel}}</span>' + '            <select style="float: left;height: 27px; width: 100px" ng-model="pagingOptions.pageSize" >' + '                <option ng-repeat="size in pagingOptions.pageSizes">{{size}}</option>' + '            </select>' + '        </div>' + '        <div style="float:left; margin-right: 10px; line-height:25px;" class="ngPagerControl" style="float: left; min-width: 135px;">' + '            <button class="ngPagerButton" ng-click="pageToFirst()" ng-disabled="cantPageBackward()" title="{{i18n.ngPagerFirstTitle}}"><div class="ngPagerFirstTriangle"><div class="ngPagerFirstBar"></div></div></button>' + '            <button class="ngPagerButton" ng-click="pageBackward()" ng-disabled="cantPageBackward()" title="{{i18n.ngPagerPrevTitle}}"><div class="ngPagerFirstTriangle ngPagerPrevTriangle"></div></button>' + '            <input class="ngPagerCurrent" min="1" max="{{maxPages()}}" type="number" style="width:50px; height: 24px; margin-top: 1px; padding: 0 4px;" ng-model="pagingOptions.currentPage"/>' + '            <button class="ngPagerButton" ng-click="pageForward()" ng-disabled="cantPageForward()" title="{{i18n.ngPagerNextTitle}}"><div class="ngPagerLastTriangle ngPagerNextTriangle"></div></button>' + '            <button class="ngPagerButton" ng-click="pageToLast()" ng-disabled="cantPageToLast()" title="{{i18n.ngPagerLastTitle}}"><div class="ngPagerLastTriangle"><div class="ngPagerLastBar"></div></div></button>' + '        </div>' + '    </div>' + '</div>');
-      $templateCache.put('gridTemplate.html', '<div class="ngTopPanel" ng-class="{\'ui-widget-header\':jqueryUITheme, \'ui-corner-top\': jqueryUITheme}" ng-style="topPanelStyle()">' + '    <div class="ngGroupPanel" ng-show="showGroupPanel()" ng-style="groupPanelStyle()">' + '        <div class="ngGroupPanelDescription" ng-show="configGroups.length == 0">{{i18n.ngGroupPanelDescription}}</div>' + '        <ul ng-show="configGroups.length > 0" class="ngGroupList">' + '            <li class="ngGroupItem" ng-repeat="group in configGroups">' + '                <span class="ngGroupElement">' + '                    <span class="ngGroupName">{{group.displayName}}' + '                        <span ng-click="removeGroup($index)" class="ngRemoveGroup">x</span>' + '                    </span>' + '                    <span ng-hide="$last" class="ngGroupArrow"></span>' + '                </span>' + '            </li>' + '        </ul>' + '    </div>' + '    <div class="ngHeaderContainer" ng-style="headerStyle()">' + '        <div class="ngHeaderScroller" ng-style="headerScrollerStyle()" ng-include="gridId + \'headerRowTemplate.html\'"></div>' + '    </div>' + '    <div ng-grid-menu></div>' + '</div>' + '<div class="ngViewport" unselectable="on" ng-viewport ng-class="{\'ui-widget-content\': jqueryUITheme}" ng-style="viewportStyle()">' + '    <div class="ngCanvas" ng-style="canvasStyle()">' + '        <div ng-style="rowStyle(row)" ng-repeat="row in renderedRows" ng-click="row.toggleSelected($event)" ng-class="row.alternatingRowClass()" ng-row></div>' + '    </div>' + '</div>' + '<div ng-grid-footer></div>' + '');
-      $templateCache.put('headerCellTemplate.html', '<div class="ngHeaderSortColumn {{col.headerClass}}" ng-style="{\'cursor\': col.cursor}" ng-class="{ \'ngSorted\': !noSortVisible }">' + '    <div ng-click="col.sort($event)" ng-class="\'colt\' + col.index" class="ngHeaderText">{{col.displayName}}</div>' + '    <div class="ngSortButtonDown" ng-show="col.showSortButtonDown()"></div>' + '    <div class="ngSortButtonUp" ng-show="col.showSortButtonUp()"></div>' + '    <div class="ngSortPriority">{{col.sortPriority}}</div>' + '    <div ng-class="{ ngPinnedIcon: col.pinned, ngUnPinnedIcon: !col.pinned }" ng-click="togglePin(col)" ng-show="col.pinnable"></div>' + '</div>' + '<div ng-show="col.resizable" class="ngHeaderGrip" ng-click="col.gripClick($event)" ng-mousedown="col.gripOnMouseDown($event)"></div>');
-      $templateCache.put('headerRowTemplate.html', '<div ng-style="{ height: col.headerRowHeight }" ng-repeat="col in renderedColumns" ng-class="col.colIndex()" class="ngHeaderCell">' + '\t<div class="ngVerticalBar" ng-style="{height: col.headerRowHeight}" ng-class="{ ngVerticalBarVisible: !$last }">&nbsp;</div>' + '\t<div ng-header-cell></div>' + '</div>');
-      $templateCache.put('menuTemplate.html', '<div ng-show="showColumnMenu || showFilter"  class="ngHeaderButton" ng-click="toggleShowMenu()">' + '    <div class="ngHeaderButtonArrow"></div>' + '</div>' + '<div ng-show="showMenu" class="ngColMenu">' + '    <div ng-show="showFilter">' + '        <input placeholder="{{i18n.ngSearchPlaceHolder}}" type="text" ng-model="filterText"/>' + '    </div>' + '    <div ng-show="showColumnMenu">' + '        <span class="ngMenuText">{{i18n.ngMenuText}}</span>' + '        <ul class="ngColList">' + '            <li class="ngColListItem" ng-repeat="col in columns | ngColumns">' + '                <label><input ng-disabled="col.pinned" type="checkbox" class="ngColListCheckbox" ng-model="col.visible"/>{{col.displayName}}</label>' + '\t\t\t\t<a title="Group By" ng-class="col.groupedByClass()" ng-show="col.groupable && col.visible" ng-click="groupBy(col)"></a>' + '\t\t\t\t<span class="ngGroupingNumber" ng-show="col.groupIndex > 0">{{col.groupIndex}}</span>          ' + '            </li>' + '        </ul>' + '    </div>' + '</div>');
-      $templateCache.put('rowTemplate.html', '<div ng-style="{ \'cursor\': row.cursor }" ng-repeat="col in renderedColumns" ng-class="col.colIndex()" class="ngCell {{col.cellClass}}">' + '\t<div class="ngVerticalBar" ng-style="{height: rowHeight}" ng-class="{ ngVerticalBarVisible: !$last }">&nbsp;</div>' + '\t<div ng-cell></div>' + '</div>');
+      $templateCache.put('footerTemplate.html', '<div ng-show="showFooter" class="ngFooterPanel" ng-class="{\'ui-widget-content\': jqueryUITheme, \'ui-corner-bottom\': jqueryUITheme}" ng-style="footerStyle()">\r' + '\n' + '    <div class="ngTotalSelectContainer" >\r' + '\n' + '        <div class="ngFooterTotalItems" ng-class="{\'ngNoMultiSelect\': !multiSelect}" >\r' + '\n' + '            <span class="ngLabel">{{i18n.ngTotalItemsLabel}} {{maxRows()}}</span><span ng-show="filterText.length > 0" class="ngLabel">({{i18n.ngShowingItemsLabel}} {{totalFilteredItemsLength()}})</span>\r' + '\n' + '        </div>\r' + '\n' + '        <div class="ngFooterSelectedItems" ng-show="multiSelect">\r' + '\n' + '            <span class="ngLabel">{{i18n.ngSelectedItemsLabel}} {{selectedItems.length}}</span>\r' + '\n' + '        </div>\r' + '\n' + '    </div>\r' + '\n' + '    <div class="ngPagerContainer" style="float: right; margin-top: 10px;" ng-show="enablePaging" ng-class="{\'ngNoMultiSelect\': !multiSelect}">\r' + '\n' + '        <div style="float:left; margin-right: 10px;" class="ngRowCountPicker">\r' + '\n' + '            <span style="float: left; margin-top: 3px;" class="ngLabel">{{i18n.ngPageSizeLabel}}</span>\r' + '\n' + '            <select style="float: left;height: 27px; width: 100px" ng-model="pagingOptions.pageSize" >\r' + '\n' + '                <option ng-repeat="size in pagingOptions.pageSizes">{{size}}</option>\r' + '\n' + '            </select>\r' + '\n' + '        </div>\r' + '\n' + '        <div style="float:left; margin-right: 10px; line-height:25px;" class="ngPagerControl" style="float: left; min-width: 135px;">\r' + '\n' + '            <button type="button" class="ngPagerButton" ng-click="pageToFirst()" ng-disabled="cantPageBackward()" title="{{i18n.ngPagerFirstTitle}}"><div class="ngPagerFirstTriangle"><div class="ngPagerFirstBar"></div></div></button>\r' + '\n' + '            <button type="button" class="ngPagerButton" ng-click="pageBackward()" ng-disabled="cantPageBackward()" title="{{i18n.ngPagerPrevTitle}}"><div class="ngPagerFirstTriangle ngPagerPrevTriangle"></div></button>\r' + '\n' + '            <input class="ngPagerCurrent" min="1" max="{{currentMaxPages}}" type="number" style="width:50px; height: 24px; margin-top: 1px; padding: 0 4px;" ng-model="pagingOptions.currentPage"/>\r' + '\n' + '            <span class="ngGridMaxPagesNumber" ng-show="maxPages() > 0">/ {{maxPages()}}</span>\r' + '\n' + '            <button type="button" class="ngPagerButton" ng-click="pageForward()" ng-disabled="cantPageForward()" title="{{i18n.ngPagerNextTitle}}"><div class="ngPagerLastTriangle ngPagerNextTriangle"></div></button>\r' + '\n' + '            <button type="button" class="ngPagerButton" ng-click="pageToLast()" ng-disabled="cantPageToLast()" title="{{i18n.ngPagerLastTitle}}"><div class="ngPagerLastTriangle"><div class="ngPagerLastBar"></div></div></button>\r' + '\n' + '        </div>\r' + '\n' + '    </div>\r' + '\n' + '</div>\r' + '\n');
+      $templateCache.put('gridTemplate.html', '<div class="ngTopPanel" ng-class="{\'ui-widget-header\':jqueryUITheme, \'ui-corner-top\': jqueryUITheme}" ng-style="topPanelStyle()">\r' + '\n' + '    <div class="ngGroupPanel" ng-show="showGroupPanel()" ng-style="groupPanelStyle()">\r' + '\n' + '        <div class="ngGroupPanelDescription" ng-show="configGroups.length == 0">{{i18n.ngGroupPanelDescription}}</div>\r' + '\n' + '        <ul ng-show="configGroups.length > 0" class="ngGroupList">\r' + '\n' + '            <li class="ngGroupItem" ng-repeat="group in configGroups">\r' + '\n' + '                <span class="ngGroupElement">\r' + '\n' + '                    <span class="ngGroupName">{{group.displayName}}\r' + '\n' + '                        <span ng-click="removeGroup($index)" class="ngRemoveGroup">x</span>\r' + '\n' + '                    </span>\r' + '\n' + '                    <span ng-hide="$last" class="ngGroupArrow"></span>\r' + '\n' + '                </span>\r' + '\n' + '            </li>\r' + '\n' + '        </ul>\r' + '\n' + '    </div>\r' + '\n' + '    <div class="ngHeaderContainer" ng-style="headerStyle()">\r' + '\n' + '        <div ng-header-row class="ngHeaderScroller" ng-style="headerScrollerStyle()"></div>\r' + '\n' + '    </div>\r' + '\n' + '    <div ng-grid-menu></div>\r' + '\n' + '</div>\r' + '\n' + '<div class="ngViewport" unselectable="on" ng-viewport ng-class="{\'ui-widget-content\': jqueryUITheme}" ng-style="viewportStyle()">\r' + '\n' + '    <div class="ngCanvas" ng-style="canvasStyle()">\r' + '\n' + '        <div ng-style="rowStyle(row)" ng-repeat="row in renderedRows" ng-click="row.toggleSelected($event)" ng-class="row.alternatingRowClass()" ng-row></div>\r' + '\n' + '    </div>\r' + '\n' + '</div>\r' + '\n' + '<div ng-grid-footer></div>\r' + '\n');
+      $templateCache.put('headerCellTemplate.html', '<div class="ngHeaderSortColumn {{col.headerClass}}" ng-style="{\'cursor\': col.cursor}" ng-class="{ \'ngSorted\': !col.noSortVisible() }">\r' + '\n' + '    <div ng-click="col.sort($event)" ng-class="\'colt\' + col.index" class="ngHeaderText">{{col.displayName}}</div>\r' + '\n' + '    <div class="ngSortButtonDown" ng-click="col.sort($event)" ng-show="col.showSortButtonDown()"></div>\r' + '\n' + '    <div class="ngSortButtonUp" ng-click="col.sort($event)" ng-show="col.showSortButtonUp()"></div>\r' + '\n' + '    <div class="ngSortPriority">{{col.sortPriority}}</div>\r' + '\n' + '    <div ng-class="{ ngPinnedIcon: col.pinned, ngUnPinnedIcon: !col.pinned }" ng-click="togglePin(col)" ng-show="col.pinnable"></div>\r' + '\n' + '</div>\r' + '\n' + '<div ng-show="col.resizable" class="ngHeaderGrip" ng-click="col.gripClick($event)" ng-mousedown="col.gripOnMouseDown($event)"></div>\r' + '\n');
+      $templateCache.put('headerRowTemplate.html', '<div ng-style="{ height: col.headerRowHeight }" ng-repeat="col in renderedColumns" ng-class="col.colIndex()" class="ngHeaderCell">\r' + '\n' + '\t<div class="ngVerticalBar" ng-style="{height: col.headerRowHeight}" ng-class="{ ngVerticalBarVisible: !$last }">&nbsp;</div>\r' + '\n' + '\t<div ng-header-cell></div>\r' + '\n' + '</div>');
+      $templateCache.put('menuTemplate.html', '<div ng-show="showColumnMenu || showFilter"  class="ngHeaderButton" ng-click="toggleShowMenu()">\r' + '\n' + '    <div class="ngHeaderButtonArrow"></div>\r' + '\n' + '</div>\r' + '\n' + '<div ng-show="showMenu" class="ngColMenu">\r' + '\n' + '    <div ng-show="showFilter">\r' + '\n' + '        <input placeholder="{{i18n.ngSearchPlaceHolder}}" type="text" ng-model="filterText"/>\r' + '\n' + '    </div>\r' + '\n' + '    <div ng-show="showColumnMenu">\r' + '\n' + '        <span class="ngMenuText">{{i18n.ngMenuText}}</span>\r' + '\n' + '        <ul class="ngColList">\r' + '\n' + '            <li class="ngColListItem" ng-repeat="col in columns | ngColumns">\r' + '\n' + '                <label><input ng-disabled="col.pinned" type="checkbox" class="ngColListCheckbox" ng-model="col.visible"/>{{col.displayName}}</label>\r' + '\n' + '\t\t\t\t<a title="Group By" ng-class="col.groupedByClass()" ng-show="col.groupable && col.visible" ng-click="groupBy(col)"></a>\r' + '\n' + '\t\t\t\t<span class="ngGroupingNumber" ng-show="col.groupIndex > 0">{{col.groupIndex}}</span>          \r' + '\n' + '            </li>\r' + '\n' + '        </ul>\r' + '\n' + '    </div>\r' + '\n' + '</div>');
+      $templateCache.put('rowTemplate.html', '<div ng-style="{ \'cursor\': row.cursor }" ng-repeat="col in renderedColumns" ng-class="col.colIndex()" class="ngCell {{col.cellClass}}">\r' + '\n' + '\t<div class="ngVerticalBar" ng-style="{height: rowHeight}" ng-class="{ ngVerticalBarVisible: !$last }">&nbsp;</div>\r' + '\n' + '\t<div ng-cell></div>\r' + '\n' + '</div>');
     }
   ]);
 }(window, jQuery));
@@ -59371,7 +61563,7 @@ if (typeof jQuery === 'undefined') {
  * jassa-ui-angular
  * https://github.com/GeoKnow/Jassa-UI-Angular
 
- * Version: 0.0.3-SNAPSHOT - 2014-05-30
+ * Version: 0.0.4-SNAPSHOT - 2014-08-07
  * License: MIT
  */
 angular.module('ui.jassa', [
@@ -59382,7 +61574,7 @@ angular.module('ui.jassa', [
   'ui.jassa.facet-value-list',
   'ui.jassa.pointer-events-scroll-fix',
   'ui.jassa.resizable',
-  'ui.jassa.sparql-table',
+  'ui.jassa.sparql-grid',
   'ui.jassa.template-list'
 ]);
 angular.module('ui.jassa.tpls', [
@@ -59391,13 +61583,14 @@ angular.module('ui.jassa.tpls', [
   'template/facet-tree/facet-dir-ctrl.html',
   'template/facet-tree/facet-tree-item.html',
   'template/facet-value-list/facet-value-list.html',
-  'template/sparql-table/sparql-table.html',
+  'template/sparql-grid/sparql-grid.html',
   'template/template-list/template-list.html'
 ]);
 angular.module('ui.jassa.constraint-list', []).controller('ConstraintListCtrl', [
   '$scope',
+  '$q',
   '$rootScope',
-  function ($scope, $rootScope) {
+  function ($scope, $q, $rootScope) {
     var self = this;
     //var constraintManager;
     var updateConfig = function () {
@@ -59410,15 +61603,21 @@ angular.module('ui.jassa.constraint-list', []).controller('ConstraintListCtrl', 
       self.refresh();
     };
     $scope.ObjectUtils = Jassa.util.ObjectUtils;
-    var watchList = '[ObjectUtils.hashCode(sparqlService), ObjectUtils.hashCode(facetTreeConfig)]';
+    var watchList = '[ObjectUtils.hashCode(facetTreeConfig)]';
     $scope.$watch(watchList, function () {
       update();
     }, true);
+    $scope.$watch('sparqlService', function () {
+      update();
+    });
+    $scope.$watch('labelService', function () {
+      update();
+    });
     var renderConstraint = function (constraint) {
       var type = constraint.getName();
       var result;
       switch (type) {
-      case 'equal':
+      case 'equals':
         var pathStr = '' + constraint.getDeclaredPath();
         if (pathStr === '') {
           pathStr = '()';
@@ -59432,20 +61631,19 @@ angular.module('ui.jassa.constraint-list', []).controller('ConstraintListCtrl', 
     };
     self.refresh = function () {
       var constraintManager = $scope.constraintManager;
-      var items;
-      if (!constraintManager) {
-        items = [];
-      } else {
-        var constraints = constraintManager.getConstraints();
-        items = _(constraints).map(function (constraint) {
-          var r = {
-              constraint: constraint,
-              label: '' + renderConstraint(constraint)
-            };
-          return r;
-        });
-      }
-      $scope.constraints = items;
+      var constraints = constraintManager ? constraintManager.getConstraints() : [];
+      var promise = jassa.service.LookupServiceUtils.lookup($scope.labelService, constraints);
+      jassa.sponate.angular.bridgePromise(promise, $q.defer(), $scope, function (map) {
+        var items = _(constraints).map(function (constraint) {
+            var label = map.get(constraint);
+            var r = {
+                constraint: constraint,
+                label: label
+              };
+            return r;
+          });
+        $scope.constraints = items;
+      });
     };
     $scope.removeConstraint = function (item) {
       $scope.constraintManager.removeConstraint(item.constraint);  //$scope.$emit('facete:constraintsChanged');
@@ -59460,6 +61658,7 @@ angular.module('ui.jassa.constraint-list', []).controller('ConstraintListCtrl', 
     require: 'constraintList',
     scope: {
       sparqlService: '=',
+      labelService: '=',
       facetTreeConfig: '=',
       onSelect: '&select'
     },
@@ -59520,10 +61719,13 @@ angular.module('ui.jassa.facet-tree', ['ui.jassa.template-list']).controller('Fa
       }
     };
     $scope.ObjectUtils = Jassa.util.ObjectUtils;
-    var watchList = '[ObjectUtils.hashCode(sparqlService), ObjectUtils.hashCode(facetTreeConfig)]';
+    var watchList = '[ObjectUtils.hashCode(facetTreeConfig)]';
     $scope.$watch(watchList, function () {
       update();
     }, true);
+    $scope.$watch('sparqlService', function () {
+      update();
+    });
     $scope.doFilter = function (path, filterString) {
       $scope.facetTreeConfig.getPathToFilterString().put(path, filterString);
       self.refresh();
@@ -59662,7 +61864,7 @@ angular.module('ui.jassa.facet-typeahead', []).directive('facetTypeahead', [
           facetTreeConfig.facetConfig = facetConfig;
           // Compile constraints
           var self = this;
-          var constraintSpecs = _(idToModelPathMapping).map(function (item) {
+          var constraints = _(idToModelPathMapping).map(function (item) {
               var valStr = item.modelExpr(self.$scope);
               if (!valStr || valStr.trim() === '') {
                 return null;
@@ -59670,11 +61872,11 @@ angular.module('ui.jassa.facet-typeahead', []).directive('facetTypeahead', [
               var val = rdf.NodeFactory.createPlainLiteral(valStr);
               var pathSpec = item.pathExpr(self.$scope);
               var path = Jassa.facete.PathUtils.parsePathSpec(pathSpec);
-              var r = new Jassa.facete.ConstraintSpecPathValue('regex', path, val);
+              var r = new Jassa.facete.ConstraintRegex(path, val);
               return r;
             });
-          constraintSpecs = _(constraintSpecs).compact();
-          _(constraintSpecs).each(function (constraint) {
+          constraints = _(constraints).compact();
+          _(constraints).each(function (constraint) {
             cmClone.addConstraint(constraint);
           });
           var facetValueService = new Jassa.facete.FacetValueService(sparqlService, facetTreeConfig);
@@ -59792,20 +61994,23 @@ angular.module('ui.jassa.facet-value-list', []).controller('FacetValueListCtrl',
     var self = this;
     var updateFacetTreeService = function () {
       var isConfigured = $scope.sparqlService && $scope.facetTreeConfig && $scope.path;
-      facetValueService = isConfigured ? new Jassa.facete.FacetValueService($scope.sparqlService, $scope.facetTreeConfig) : null;
+      facetValueService = isConfigured ? new jassa.facete.FacetValueService($scope.sparqlService, $scope.facetTreeConfig) : null;
     };
     var update = function () {
       updateFacetTreeService();
       self.refresh();
     };
-    $scope.ObjectUtils = Jassa.util.ObjectUtils;
-    var watchList = '[ObjectUtils.hashCode(sparqlService), ObjectUtils.hashCode(facetTreeConfig), "" + path, pagination.currentPage]';
+    $scope.ObjectUtils = jassa.util.ObjectUtils;
+    var watchList = '[ObjectUtils.hashCode(facetTreeConfig), "" + path, pagination.currentPage]';
     $scope.$watch(watchList, function () {
       update();
     }, true);
+    $scope.$watch('sparqlService', function () {
+      update();
+    });
     $scope.toggleConstraint = function (item) {
       var constraintManager = facetValueService.getFacetTreeConfig().getFacetConfig().getConstraintManager();
-      var constraint = new Jassa.facete.ConstraintSpecPathValue('equal', item.path, item.node);
+      var constraint = new jassa.facete.ConstraintEquals(item.path, item.node);
       // TODO Integrate a toggle constraint method into the filterManager
       constraintManager.toggleConstraint(constraint);
     };
@@ -59821,10 +62026,10 @@ angular.module('ui.jassa.facet-value-list', []).controller('FacetValueListCtrl',
       var pageSize = 10;
       var offset = ($scope.pagination.currentPage - 1) * pageSize;
       var dataPromise = fetcher.fetchData(offset, pageSize);
-      Jassa.sponate.angular.bridgePromise(countPromise, $q.defer(), $scope.$root, function (count) {
+      jassa.sponate.angular.bridgePromise(countPromise, $q.defer(), $scope.$root, function (count) {
         $scope.pagination.totalItems = count;
       });
-      Jassa.sponate.angular.bridgePromise(dataPromise, $q.defer(), $scope.$root, function (items) {
+      jassa.sponate.angular.bridgePromise(dataPromise, $q.defer(), $scope.$root, function (items) {
         $scope.facetValues = items;
       });
     };
@@ -59976,18 +62181,19 @@ angular.module('ui.jassa.resizable', []).directive('resizable', function () {
   };
 });
 ;
-angular.module('ui.jassa.sparql-table', []).controller('SparqlTableCtrl', [
+angular.module('ui.jassa.sparql-grid', []).controller('SparqlGridCtrl', [
   '$scope',
   '$rootScope',
   '$q',
   function ($scope, $rootScope, $q) {
-    var rdf = Jassa.rdf;
-    var sparql = Jassa.sparql;
-    var service = Jassa.service;
-    var util = Jassa.util;
-    var sponate = Jassa.sponate;
+    var rdf = jassa.rdf;
+    var sparql = jassa.sparql;
+    var service = jassa.service;
+    var util = jassa.util;
+    var sponate = jassa.sponate;
+    var facete = jassas.facete;
     var syncTableMod = function (sortInfo, tableMod) {
-      util.ArrayUtils.clear(tableMod.getSortConditions());
+      var newSortConditions = [];
       for (var i = 0; i < sortInfo.fields.length; ++i) {
         var columnId = sortInfo.fields[i];
         var dir = sortInfo.directions[i];
@@ -59999,8 +62205,13 @@ angular.module('ui.jassa.sparql-table', []).controller('SparqlTableCtrl', [
         }
         if (d !== 0) {
           var sortCondition = new facete.SortCondition(columnId, d);
-          tableMod.getSortConditions().push(sortCondition);
+          newSortConditions.push(sortCondition);
         }
+      }
+      var oldSortConditions = tableMod.getSortConditions();
+      var isTheSame = _(newSortConditions).isEqual(oldSortConditions);
+      if (!isTheSame) {
+        util.ArrayUtils.replace(oldSortConditions, newSortConditions);
       }
     };
     var createTableService = function () {
@@ -60022,10 +62233,16 @@ angular.module('ui.jassa.sparql-table', []).controller('SparqlTableCtrl', [
     $scope.$watch('[pagingOptions, filterOptions]', function (newVal, oldVal) {
       $scope.refreshData();
     }, true);
-    $scope.ObjectUtils = util.ObjectUtils;
-    $scope.$watch('[ObjectUtils.hashCode(sparqlService), ObjectUtils.hashCode(config), disableRequests]', function (newVal, oldVal) {
+    var update = function () {
       $scope.refresh();
+    };
+    $scope.ObjectUtils = util.ObjectUtils;
+    $scope.$watch('[ObjectUtils.hashCode(config), disableRequests]', function (newVal, oldVal) {
+      update();
     }, true);
+    $scope.$watch('sparqlService', function () {
+      update();
+    });
     $scope.totalServerItems = 0;
     $scope.pagingOptions = {
       pageSizes: [
@@ -60039,7 +62256,7 @@ angular.module('ui.jassa.sparql-table', []).controller('SparqlTableCtrl', [
     $scope.refresh = function () {
       var tableService = createTableService();
       if ($scope.disableRequests) {
-        $scope.myData = [];
+        util.ArrayUtils.clear($scope.myData);
         return;
       }
       $scope.refreshSchema(tableService);
@@ -60048,12 +62265,17 @@ angular.module('ui.jassa.sparql-table', []).controller('SparqlTableCtrl', [
     };
     $scope.refreshSchema = function (tableService) {
       tableService = tableService || createTableService();
-      $scope.colDefs = tableService.getSchema();
+      var oldSchema = $scope.colDefs;
+      var newSchema = tableService.getSchema();
+      var isTheSame = _(newSchema).isEqual(oldSchema);
+      if (!isTheSame) {
+        $scope.colDefs = newSchema;
+      }
     };
     $scope.refreshPageCount = function (tableService) {
       tableService = tableService || createTableService();
       var promise = tableService.fetchCount();
-      Jassa.sponate.angular.bridgePromise(promise, $q.defer(), $scope, function (countInfo) {
+      jassa.sponate.angular.bridgePromise(promise, $q.defer(), $scope, function (countInfo) {
         // Note: There is also countInfo.hasMoreItems and countInfo.limit (limit where the count was cut off)
         $scope.totalServerItems = countInfo.count;
       });
@@ -60064,8 +62286,13 @@ angular.module('ui.jassa.sparql-table', []).controller('SparqlTableCtrl', [
       var pageSize = $scope.pagingOptions.pageSize;
       var offset = (page - 1) * pageSize;
       var promise = tableService.fetchData(pageSize, offset);
-      Jassa.sponate.angular.bridgePromise(promise, $q.defer(), $scope, function (data) {
-        $scope.myData = data;
+      jassa.sponate.angular.bridgePromise(promise, $q.defer(), $scope, function (data) {
+        var isTheSame = _(data).isEqual($scope.myData);
+        if (!isTheSame) {
+          $scope.myData = data;
+        }  //util.ArrayUtils.replace($scope.myData, data);
+           // Using equals gives digest iterations exceeded errors; could be https://github.com/angular-ui/ng-grid/issues/873
+           //$scope.myData = data;
       });
     };
     var plugins = [];
@@ -60091,17 +62318,16 @@ angular.module('ui.jassa.sparql-table', []).controller('SparqlTableCtrl', [
       filterOptions: $scope.filterOptions,
       plugins: plugins,
       columnDefs: 'colDefs'
-    };
-    $scope.refresh();
+    };  //$scope.refresh();
   }
-]).directive('sparqlTable', [
+]).directive('sparqlGrid', [
   '$parse',
   function ($parse) {
     return {
       restrict: 'EA',
       replace: true,
-      templateUrl: 'template/sparql-table/sparql-table.html',
-      controller: 'SparqlTableCtrl',
+      templateUrl: 'template/sparql-grid/sparql-grid.html',
+      controller: 'SparqlGridCtrl',
       scope: {
         sparqlService: '=',
         config: '=',
@@ -60163,7 +62389,7 @@ angular.module('ui.jassa.template-list', []).controller('TemplateListCtrl', [
 angular.module('template/constraint-list/constraint-list.html', []).run([
   '$templateCache',
   function ($templateCache) {
-    $templateCache.put('template/constraint-list/constraint-list.html', '<ul>\n' + '  \t<li ng-show="constraints.length == 0" style="color: #aaaaaa;">(no constraints)</li>\n' + '   \t<li ng-repeat="constraint in constraints"><a href="" ng-click="removeConstraint(constraint)">{{constraint.label}}</a></li>\n' + '</ul>\n' + '');
+    $templateCache.put('template/constraint-list/constraint-list.html', '<ul>\n' + '  \t<li ng-show="constraints.length == 0" style="color: #aaaaaa;">(no constraints)</li>\n' + '   \t<li ng-repeat="constraint in constraints"><a href="" ng-click="removeConstraint(constraint)" ng-bind-html="constraint.label"></a></li>\n' + '</ul>\n' + '');
   }
 ]);
 angular.module('template/facet-tree/facet-dir-content.html', []).run([
@@ -60187,13 +62413,13 @@ angular.module('template/facet-tree/facet-tree-item.html', []).run([
 angular.module('template/facet-value-list/facet-value-list.html', []).run([
   '$templateCache',
   function ($templateCache) {
-    $templateCache.put('template/facet-value-list/facet-value-list.html', '<div class="frame">\n' + '\t<form ng-submit="filterTable(filterText)">\n' + '\t    <input type="text" ng-model="filterText" />\n' + '\t\t<input class="btn-primary" type="submit" value="Filter" />\n' + '\t</form>\n' + '\t<table>\n' + '              <tr><th>Value</th><th>Constrained</th></tr>\n' + '<!-- <th>Count</th> -->\n' + '\t    <tr ng-repeat="item in facetValues">\n' + '                  <td>{{item.displayLabel}}</td>\n' + '<!--                    <td>todo</td> -->\n' + '                  <td><input type="checkbox" ng-model="item.tags.isConstrainedEqual" ng-change="toggleConstraint(item)" /></td>\n' + '              </tr>\n' + '      \t</table>\n' + '  \t\t<pagination class="pagination-small" total-items="pagination.totalItems" page="pagination.currentPage" max-size="pagination.maxSize" boundary-links="true" rotate="false" num-pages="pagination.numPages"></pagination>\n' + '</div>\n' + '');
+    $templateCache.put('template/facet-value-list/facet-value-list.html', '<div class="frame">\n' + '\t<form ng-submit="filterTable(filterText)">\n' + '\t    <input type="text" ng-model="filterText" />\n' + '\t\t<input class="btn-primary" type="submit" value="Filter" />\n' + '\t</form>\n' + '\t<table>\n' + '              <tr><th>Value</th><th>Constrained</th></tr>\n' + '<!-- <th>Count</th> -->\n' + '\t    <tr ng-repeat="item in facetValues">\n' + '                  <td><span title="{{item.node.toString()}}">{{item.displayLabel}}</span></td>\n' + '<!--                    <td>todo</td> -->\n' + '                  <td><input type="checkbox" ng-model="item.tags.isConstrainedEqual" ng-change="toggleConstraint(item)" /></td>\n' + '              </tr>\n' + '      \t</table>\n' + '  \t\t<pagination class="pagination-small" total-items="pagination.totalItems" page="pagination.currentPage" max-size="pagination.maxSize" boundary-links="true" rotate="false" num-pages="pagination.numPages" previous-text="&lsaquo;" next-text="&rsaquo;" first-text="&laquo;" last-text="&raquo;"></pagination>\n' + '</div>\n' + '');
   }
 ]);
-angular.module('template/sparql-table/sparql-table.html', []).run([
+angular.module('template/sparql-grid/sparql-grid.html', []).run([
   '$templateCache',
   function ($templateCache) {
-    $templateCache.put('template/sparql-table/sparql-table.html', '<div>\n' + '<div ng-grid="gridOptions"></div>\n' + '</div>\n' + '');
+    $templateCache.put('template/sparql-grid/sparql-grid.html', '<div>\n' + '<div ng-grid="gridOptions"></div>\n' + '</div>\n' + '');
   }
 ]);
 angular.module('template/template-list/template-list.html', []).run([
@@ -60206,16 +62432,17 @@ angular.module('template/template-list/template-list.html', []).run([
  * jassa-ui-angular
  * https://github.com/GeoKnow/Jassa-UI-Angular
 
- * Version: 0.0.3-SNAPSHOT - 2014-05-21
+ * Version: 0.0.4-SNAPSHOT - 2014-08-06
  * License: MIT
  */
 angular.module('ui.jassa.openlayers', [
   'ui.jassa.openlayers.tpls',
-  'ui.jassa.openlayers.jassa-map-ol'
+  'ui.jassa.openlayers.jassa-map-ol',
+  'ui.jassa.openlayers.jassa-map-ol-a'
 ]);
 angular.module('ui.jassa.openlayers.tpls', []);
 //TODO Move to some better place
-Jassa.setOlMapCenter = function (map, config) {
+jassa.setOlMapCenter = function (map, config) {
   var zoom = config.zoom;
   var center = config.center;
   var olCenter = null;
@@ -60231,107 +62458,192 @@ Jassa.setOlMapCenter = function (map, config) {
 };
 angular.module('ui.jassa.openlayers.jassa-map-ol', []).controller('JassaMapOlCtrl', [
   '$scope',
-  '$rootScope',
-  function ($scope, $rootScope) {
-    var refresh;
-    var defaultViewStateFetcher = new Jassa.geo.ViewStateFetcher();
+  '$q',
+  function ($scope, $q) {
+    $scope.loadingSources = [];
+    $scope.items = [];
+    /**
+     * Checks whether the item is a box or a generic object
+     */
+    var addItem = function (item) {
+      var mapWrapper = $scope.map.widget;
+      if (item.zoomClusterBounds) {
+        mapWrapper.addBox(item.id, item.zoomClusterBounds);
+      } else {
+        var wktNode = item.wkt;
+        var wkt = wktNode.getLiteralLexicalForm();
+        mapWrapper.addWkt(item.id, wkt, item);  // {fillColor: markerFillColor, strokeColor: markerStrokeColor});
+      }
+    };
+    $scope.$watchCollection('items', function (after, before) {
+      var mapWrapper = $scope.map.widget;
+      mapWrapper.clearItems();
+      _($scope.items).each(function (item) {
+        addItem(item);
+      });
+    });
+    //$scope.boxes = [];
+    var fetchDataFromSourceCore = function (dataSource, bounds) {
+      var p = dataSource.fetchData(bounds);
+      var result = p.pipe(function (items) {
+          items = _(items).compact();
+          // Commented out because this is the application's decision 
+          // Add the dataSource as the config
+          //            _(items).each(function(item) {
+          //                item.config = dataSource;
+          //            });
+          return items;
+        });
+      return result;
+    };
+    var fetchDataFromSource = function (dataSourceId, dataSource, bounds) {
+      // Check if we are already loading from this data source
+      var idToState = _($scope.loadingSources).indexBy('id');
+      var state = idToState[dataSourceId];
+      // If there is a prior state, cancel it
+      if (state) {
+        if (state.promise.abort) {
+          state.promise.abort();
+        }
+      } else {
+        state = {
+          id: dataSourceId,
+          requestId: 0
+        };
+        idToState[dataSourceId] = state;
+        $scope.loadingSources.push(state);
+      }
+      var requestId = ++state.requestId;
+      var promise = fetchDataFromSourceCore(dataSource, bounds);
+      var result = promise.pipe(function (items) {
+          if (idToState[dataSourceId].requestId != requestId) {
+            return;
+          }
+          items = _(items).compact(true);
+          jassa.util.ArrayUtils.removeByGrep($scope.loadingSources, function (item) {
+            return item.id === dataSourceId;
+          });
+          jassa.util.ArrayUtils.addAll($scope.items, items);
+          if (!$scope.$$phase && !$scope.$root.$$phase) {
+            $scope.$apply();
+          }
+          return items;
+        });
+      state.promise = result;
+      return result;
+    };
+    var fetchData = function (dataSources, bounds, progressionCallback) {
+      var promises = [];
+      //for(var i = 0; i < dataSources.length; ++i) {
+      _(dataSources).each(function (dataSource, i) {
+        var promise = fetchDataFromSource('' + i, dataSource, bounds);
+        promises.push(promise);
+      });
+      //var promises = _(dataSources).map(function(dataSource) {
+      //    fetchDataFromSource
+      //});
+      var result = jQuery.when.apply(window, promises).pipe(function () {
+          var r = _(arguments).flatten(true);
+          return r;
+        });
+      return result;
+    };
+    var refresh = function () {
+      jassa.util.ArrayUtils.clear($scope.items);
+      var dataSources = $scope.sources;
+      var bounds = jassa.geo.openlayers.MapUtils.getExtent($scope.map);
+      var promise = fetchData(dataSources, bounds);  // Nothing to to with the promise as the scope has already been updated
+                                                     //        jassa.sponate.angular.bridgePromise(promise, $q.defer(), $scope, function(items) {
+                                                     //            $scope.items = items;
+                                                     //        });
+    };
     // Make Jassa's ObjectUtils known to the scope - features the hashCode utility function
-    $scope.ObjectUtils = Jassa.util.ObjectUtils;
+    $scope.ObjectUtils = jassa.util.ObjectUtils;
     $scope.$watch('config', function (config, oldConfig) {
-      //console.log('Config update: ', config);
       if (_(config).isEqual(oldConfig)) {
         return;
       }
-      //console.log('Compared: ' + JSON.stringify(config) + ' -> ' + JSON.stringify(oldConfig));
-      Jassa.setOlMapCenter($scope.map, config);
+      jassa.setOlMapCenter($scope.map, config);
     }, true);
-    var watchList = '[map.center, map.zoom, ObjectUtils.hashCode(sources)]';
-    //viewStateFetcher
-    $scope.$watch(watchList, function () {
-      //console.log('Map refresh: ' + Jassa.util.ObjectUtils.hashCode($scope.config));
+    $scope.$watch('[map.center, map.zoom]', function () {
+      //console.log('Map refresh: ' + jassa.util.ObjectUtils.hashCode($scope.config));
       refresh();
     }, true);
-    refresh = function () {
-      var mapWrapper = $scope.map.widget;
-      mapWrapper.clearItems();
-      var dataSources = $scope.sources;
-      var bounds = Jassa.geo.openlayers.MapUtils.getExtent($scope.map);
-      _(dataSources).each(function (dataSource) {
-        var viewStateFetcher = dataSource.viewStateFetcher || defaultViewStateFetcher;
-        var sparqlService = dataSource.sparqlService;
-        var mapFactory = dataSource.mapFactory;
-        //var conceptFactory = dataSource.conceptFactory
-        var conceptFactory = dataSource.conceptFactory;
-        var concept = conceptFactory.createConcept();
-        var quadTreeConfig = dataSource.quadTreeConfig;
-        var promise = viewStateFetcher.fetchViewState(sparqlService, mapFactory, concept, bounds, quadTreeConfig);
-        // TODO How to obtain the marker style?
-        promise.done(function (viewState) {
-          var nodes = viewState.getNodes();
-          _(nodes).each(function (node) {
-            //console.log('booooo', node);
-            if (!node.isLoaded) {
-              //console.log('box: ' + node.getBounds());
-              mapWrapper.addBox('' + node.getBounds(), node.getBounds());
-            }
-            var data = node.data || {};
-            var docs = data.docs || [];
-            _(docs).each(function (doc) {
-              var itemData = {
-                  id: doc.id,
-                  config: dataSource
-                };
-              var wkt = doc.wkt.getLiteralLexicalForm();
-              mapWrapper.addWkt(doc.id, wkt, itemData);  // {fillColor: markerFillColor, strokeColor: markerStrokeColor});
+    //    $scope.$watch('sources', function() {
+    //        refresh();
+    //    });
+    $scope.$watchCollection('sources', function () {
+      refresh();
+    });
+  }
+]).directive('jassaMapOl', [
+  '$compile',
+  function ($compile) {
+    return {
+      restrict: 'EA',
+      replace: true,
+      template: '<div></div>',
+      controller: 'JassaMapOlCtrl',
+      scope: {
+        config: '=',
+        sources: '=',
+        onSelect: '&select',
+        onUnselect: '&unselect'
+      },
+      link: function (scope, element, attrs) {
+        var $el = jQuery(element).ssbMap();
+        var widget = $el.data('custom-ssbMap');
+        var map = widget.map;
+        map.widget = widget;
+        scope.map = map;
+        jassa.setOlMapCenter(scope.map, scope.config);
+        // Status Div
+        //<ul><li ng-repeat="item in loadingSources">{{item.id}}</li></ul>
+        var statusDivHtml = '<span ng-show="loadingSources.length > 0" class="label label-primary" style="position: absolute; right: 10px; bottom: 25px; z-index: 1000;">Waiting for data from <span class="badge">{{loadingSources.length}}</span> sources... </span>';
+        var $elStatus = $compile(statusDivHtml)(scope);
+        element.append($elStatus);
+        /*
+            var $;
+            if (!$) {$ = angular.element; }
+            var $statusDiv = $('<div>');
+            $statusDiv.css({
+                position: 'absolute',
+                right: 10,
+                bottom: 10,
+                'z-index': 1000
             });
-          });
+            var $statusContent = $('<span>YAAAY</span>');
+            
+            $statusDiv.append($statusContent);
+            
+            element.append($statusDiv);
+*/
+        // Status Div
+        var syncModel = function (event) {
+          var tmp = scope.map.getCenter();
+          var center = tmp.transform(scope.map.projection, scope.map.displayProjection);
+          //console.log('syncModel', center);
+          scope.config.center = {
+            lon: center.lon,
+            lat: center.lat
+          };
+          scope.config.zoom = scope.map.getZoom();
+          if (!scope.$root.$$phase) {
+            scope.$apply();
+          }
+        };
+        $el.on('ssbmapfeatureselect', function (ev, data) {
+          scope.onSelect({ data: data });
         });
-      });
+        $el.on('ssbmapfeatureunselect', function (ev, data) {
+          scope.onUnselect({ data: data });
+        });
+        map.events.register('moveend', this, syncModel);
+        map.events.register('zoomend', this, syncModel);
+      }
     };
   }
-]).directive('jassaMapOl', function ($parse) {
-  return {
-    restrict: 'EA',
-    replace: true,
-    template: '<div></div>',
-    controller: 'JassaMapOlCtrl',
-    scope: {
-      config: '=',
-      sources: '=',
-      onSelect: '&select',
-      onUnselect: '&unselect'
-    },
-    link: function (scope, element, attrs) {
-      var $el = jQuery(element).ssbMap();
-      var widget = $el.data('custom-ssbMap');
-      var map = widget.map;
-      map.widget = widget;
-      scope.map = map;
-      Jassa.setOlMapCenter(scope.map, scope.config);
-      var syncModel = function (event) {
-        var tmp = scope.map.getCenter();
-        var center = tmp.transform(scope.map.projection, scope.map.displayProjection);
-        //console.log('syncModel', center);
-        scope.config.center = {
-          lon: center.lon,
-          lat: center.lat
-        };
-        scope.config.zoom = scope.map.getZoom();
-        if (!scope.$root.$$phase) {
-          scope.$apply();
-        }
-      };
-      $el.on('ssbmapfeatureselect', function (ev, data) {
-        scope.onSelect({ data: data });
-      });
-      $el.on('ssbmapfeatureunselect', function (ev, data) {
-        scope.onUnselect({ data: data });
-      });
-      map.events.register('moveend', this, syncModel);
-      map.events.register('zoomend', this, syncModel);
-    }
-  };
-});
+]);
 ;
 /**
  * Copyright (C) 2011, MOLE research group at AKSW,
@@ -60426,11 +62738,11 @@ angular.module('ui.jassa.openlayers.jassa-map-ol', []).controller('JassaMapOlCtr
         graphicXOffset: -16,
         fillColor: '${fillColor}',
         strokeColor: '${strokeColor}',
-        fontColor: '#0000FF',
+        fontColor: '${fontColor}',
         fontSize: '12px',
         fontFamily: 'Courier New, monospace',
         fontWeight: 'bold',
-        label: '',
+        label: '${shortLabel}',
         labelYOffset: 21
       });
       //console.log('MarkerStyle', this.styles.markerStyle);
@@ -60525,13 +62837,13 @@ angular.module('ui.jassa.openlayers.jassa-map-ol', []).controller('JassaMapOlCtr
         this.featureLayer
       ], {
         onUnselect: function (feature) {
-          var data = feature.data;
+          var data = feature.attributes;
           var event = null;
           self._trigger('featureUnselect', event, data);
         },
         onSelect: function (feature) {
           //var vector = feature; // Note: We assume a vector feature - might have to check in the future                
-          var data = feature.data;
+          var data = feature.attributes;
           var geometry = feature.geometry;
           // FIXME Find a better way to get the click coordinates; but it might not exists yet, see http://trac.osgeo.org/openlayers/ticket/2089
           var xy = this.handlers.feature.evt.xy;
@@ -60611,8 +62923,8 @@ angular.module('ui.jassa.openlayers.jassa-map-ol', []).controller('JassaMapOlCtr
 
             feature.attributes = newAttrs
           */
-      //feature.attributes = attrs;
-      feature.data = attrs;
+      feature.attributes = attrs;
+      //feature.data = attrs;
       //feature.geometry = g;
       /*
         var newAttrs = OpenLayers.Util.extend(
@@ -60890,6 +63202,111 @@ angular.module('ui.jassa.openlayers.jassa-map-ol', []).controller('JassaMapOlCtr
     }*/
   });
 }(jQuery));
+// Legacy version - don't use if you don't have to
+angular.module('ui.jassa.openlayers.jassa-map-ol-a', []).controller('JassaMapOlACtrl', [
+  '$scope',
+  '$rootScope',
+  function ($scope, $rootScope) {
+    var refresh;
+    var defaultViewStateFetcher = new Jassa.geo.ViewStateFetcher();
+    // Make Jassa's ObjectUtils known to the scope - features the hashCode utility function
+    $scope.ObjectUtils = Jassa.util.ObjectUtils;
+    $scope.$watch('config', function (config, oldConfig) {
+      //console.log('Config update: ', config);
+      if (_(config).isEqual(oldConfig)) {
+        return;
+      }
+      //console.log('Compared: ' + JSON.stringify(config) + ' -> ' + JSON.stringify(oldConfig));
+      Jassa.setOlMapCenter($scope.map, config);
+    }, true);
+    var watchList = '[map.center, map.zoom, ObjectUtils.hashCode(sources)]';
+    //viewStateFetcher
+    $scope.$watch(watchList, function () {
+      //console.log('Map refresh: ' + Jassa.util.ObjectUtils.hashCode($scope.config));
+      refresh();
+    }, true);
+    refresh = function () {
+      var mapWrapper = $scope.map.widget;
+      mapWrapper.clearItems();
+      var dataSources = $scope.sources;
+      var bounds = Jassa.geo.openlayers.MapUtils.getExtent($scope.map);
+      _(dataSources).each(function (dataSource) {
+        var viewStateFetcher = dataSource.viewStateFetcher || defaultViewStateFetcher;
+        var sparqlService = dataSource.sparqlService;
+        var mapFactory = dataSource.mapFactory;
+        //var conceptFactory = dataSource.conceptFactory
+        var conceptFactory = dataSource.conceptFactory;
+        var concept = conceptFactory.createConcept();
+        var quadTreeConfig = dataSource.quadTreeConfig;
+        var promise = viewStateFetcher.fetchViewState(sparqlService, mapFactory, concept, bounds, quadTreeConfig);
+        // TODO How to obtain the marker style?
+        promise.done(function (viewState) {
+          var nodes = viewState.getNodes();
+          _(nodes).each(function (node) {
+            //console.log('booooo', node);
+            if (!node.isLoaded) {
+              //console.log('box: ' + node.getBounds());
+              mapWrapper.addBox('' + node.getBounds(), node.getBounds());
+            }
+            var data = node.data || {};
+            var docs = data.docs || [];
+            _(docs).each(function (doc) {
+              var itemData = {
+                  id: doc.id,
+                  config: dataSource
+                };
+              var wkt = doc.wkt.getLiteralLexicalForm();
+              mapWrapper.addWkt(doc.id, wkt, itemData);  // {fillColor: markerFillColor, strokeColor: markerStrokeColor});
+            });
+          });
+        });
+      });
+    };
+  }
+]).directive('jassaMapOlA', function ($parse) {
+  return {
+    restrict: 'EA',
+    replace: true,
+    template: '<div></div>',
+    controller: 'JassaMapOlACtrl',
+    scope: {
+      config: '=',
+      sources: '=',
+      onSelect: '&select',
+      onUnselect: '&unselect'
+    },
+    link: function (scope, element, attrs) {
+      var $el = jQuery(element).ssbMap();
+      var widget = $el.data('custom-ssbMap');
+      var map = widget.map;
+      map.widget = widget;
+      scope.map = map;
+      Jassa.setOlMapCenter(scope.map, scope.config);
+      var syncModel = function (event) {
+        var tmp = scope.map.getCenter();
+        var center = tmp.transform(scope.map.projection, scope.map.displayProjection);
+        //console.log('syncModel', center);
+        scope.config.center = {
+          lon: center.lon,
+          lat: center.lat
+        };
+        scope.config.zoom = scope.map.getZoom();
+        if (!scope.$root.$$phase) {
+          scope.$apply();
+        }
+      };
+      $el.on('ssbmapfeatureselect', function (ev, data) {
+        scope.onSelect({ data: data });
+      });
+      $el.on('ssbmapfeatureunselect', function (ev, data) {
+        scope.onUnselect({ data: data });
+      });
+      map.events.register('moveend', this, syncModel);
+      map.events.register('zoomend', this, syncModel);
+    }
+  };
+});
+;
 /**
  * State-based routing for AngularJS
  * @version v0.2.10
