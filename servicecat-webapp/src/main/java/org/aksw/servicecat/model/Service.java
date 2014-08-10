@@ -7,6 +7,7 @@ import javax.persistence.Column;
 import javax.persistence.ElementCollection;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
+import javax.persistence.Lob;
 import javax.persistence.OrderColumn;
 
 
@@ -15,7 +16,8 @@ public class Service
     extends Resource
 {
 
-	@Column(nullable=false, unique=true)
+    //@Lob
+	@Column(columnDefinition="text", nullable=false, unique=true)
 	private String endpoint;
 		
 	// The basic comment associated with the dataset
@@ -28,9 +30,10 @@ public class Service
 //	private UserInfo owner;
 
 
+    //@Lob
 	@ElementCollection(fetch=FetchType.EAGER)
 	@OrderColumn(name="sequence_id")
-	@Column(name="url")
+	@Column(name="url", columnDefinition="text")
 	private List<String> availableGraphs = new ArrayList<String>();
 	//private GraphCollection availableGraphs;
 

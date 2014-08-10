@@ -1,0 +1,12 @@
+{
+    "endpoint": "http://dbpedia.org/sparql",
+    "availableGraphs": [{
+        "namedGraph": {
+            "name": "http://dbpedia.org",
+            "labels": {
+                "": "DBpedia",
+                "en": "DBpedia"
+            }
+        }
+    }]
+}

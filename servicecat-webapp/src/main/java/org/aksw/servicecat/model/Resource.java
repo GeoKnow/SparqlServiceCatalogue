@@ -18,9 +18,10 @@ public class Resource {
     @GeneratedValue(strategy=GenerationType.IDENTITY)
     private Long id;
 
+    //@Lob
     @ElementCollection(fetch=FetchType.EAGER)
     @MapKeyColumn (name="language")
-    @Column(name="text")
+    @Column(name="text", columnDefinition="text")
     private Map<String, String> labels;
 
 
