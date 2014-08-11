@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<artifactId>servicecat-webapp</artifactId>
@@ -102,9 +103,9 @@
 				<version>2.3</version>
 				<configuration>
 					<failOnMissingWebXml>false</failOnMissingWebXml>
-<!-- 					<warSourceDirectory>${basedir}/src/main/webapp</warSourceDirectory> -->
-<!-- 					<packagingExcludes>WEB-INF/lib/*.jar</packagingExcludes> -->
-<!-- 					<attachClasses>true</attachClasses> -->
+					<!-- <warSourceDirectory>${basedir}/src/main/webapp</warSourceDirectory> -->
+					<!-- <packagingExcludes>WEB-INF/lib/*.jar</packagingExcludes> -->
+					<!-- <attachClasses>true</attachClasses> -->
 					<!-- <classesClassifier>classes</classesClassifier> -->
 				</configuration>
 			</plugin>
@@ -142,41 +143,16 @@
 						</fileset>
 					</filesets>
 				</configuration>
-			</plugin>			
-			
-		</plugins>		
+			</plugin>
+
+		</plugins>
 	</build>
 
 	<dependencies>
-		<!-- <dependency> -->
-		<!-- <groupId>org.aksw.jassa</groupId> -->
-		<!-- <artifactId>jassa-core</artifactId> -->
-		<!-- </dependency> -->
-
-<!-- 		<dependency> -->
-<!-- 			<groupId>org.aksw.jassa</groupId> -->
-<!-- 			<artifactId>jassa-server</artifactId> -->
-<!--			<type>war</type> -->
-<!-- 		</dependency> -->
-<!-- 			<dependency> -->
-<!-- 				<groupId>org.aksw.sparqlify</groupId> -->
-<!-- 				<artifactId>sparqlify-jpa</artifactId> -->
-<!-- 			</dependency> -->
-
-<!-- 		<dependency> -->
-<!-- 			<groupId>org.hibernate</groupId> -->
-<!-- 			<artifactId>hibernate-entitymanager</artifactId> -->
-<!-- 		</dependency> -->
-
-<!-- 		<dependency> -->
-<!-- 			<groupId>org.springframework</groupId> -->
-<!-- 			<artifactId>spring-orm</artifactId> -->
-<!-- 		</dependency> -->
-
 
 		<dependency>
-			<groupId>org.aksw.jassa</groupId>
-			<artifactId>jassa-servlets</artifactId>
+			<groupId>org.aksw.servicecat</groupId>
+			<artifactId>servicecat-core</artifactId>
 		</dependency>
 
 		<dependency>
@@ -184,16 +160,10 @@
 			<artifactId>jena-sparql-api-server</artifactId>
 		</dependency>
 
-
-		<dependency>
-			<groupId>org.aksw.sparqlify</groupId>
-			<artifactId>sparqlify-core</artifactId>
-		</dependency>
-
-		<dependency>
-			<groupId>org.aksw.jdbc-utils</groupId>
-			<artifactId>jdbc-utils-core</artifactId>
-		</dependency>
+        <dependency>
+            <groupId>org.aksw.jena-sparql-api</groupId>
+            <artifactId>jena-sparql-api-servlets</artifactId>
+        </dependency>
 
 
 		<dependency>
@@ -207,70 +177,21 @@
 		</dependency>
 
 		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-jdbc</artifactId>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-web</artifactId>
 		</dependency>
 
 		<dependency>
-			<groupId>postgresql</groupId>
-			<artifactId>postgresql</artifactId>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-config</artifactId>
 		</dependency>
 
-		<dependency>
-			<groupId>com.jolbox</groupId>
-			<artifactId>bonecp</artifactId>
-		</dependency>
-
-<!-- 		<dependency> -->
-<!-- 		        <groupId>org.springframework.batch</groupId> -->
-<!-- 		        <artifactId>spring-batch-core</artifactId> -->
-<!-- 		</dependency> -->
-<!-- 		<dependency> -->
-<!-- 		        <groupId>org.springframework.batch</groupId> -->
-<!-- 		        <artifactId>spring-batch-infrastructure</artifactId> -->
-<!-- 		</dependency> -->
-
-		<dependency>
-			<groupId>org.aksw.sparqlify</groupId>
-			<artifactId>sparqlify-jpa</artifactId>
-		</dependency>
-
-		    <dependency>
-		        <groupId>org.springframework.security</groupId>
-		        <artifactId>spring-security-web</artifactId>
-		    </dependency>
-
-			<dependency>
-				<groupId>org.hibernate</groupId>
-				<artifactId>hibernate-entitymanager</artifactId>
-			</dependency>
-
-<!-- 		<dependency> -->
-<!-- 			<groupId>org.aksw.sparqlify</groupId> -->
-<!-- 			<artifactId>sparqlify-web-admin-client</artifactId> -->
-<!-- 			<type>war</type> -->
-<!-- 		</dependency> -->
-
-<!-- 		<dependency> -->
-<!-- 			<groupId>org.hibernate</groupId> -->
-<!-- 			<artifactId>hibernate-entitymanager</artifactId> -->
-<!-- 		</dependency> -->
-
-		<dependency>
-			<groupId>org.springframework</groupId>
-			<artifactId>spring-orm</artifactId>
-		</dependency>
-
-	    <dependency>
-	        <groupId>org.springframework.security</groupId>
-	        <artifactId>spring-security-config</artifactId>
-	    </dependency>
-		
 		<!-- Hack to overwrite version -->
 		<dependency>
-				<groupId>org.springframework</groupId>
-				<artifactId>spring-webmvc</artifactId>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-webmvc</artifactId>
 		</dependency>
+
 	</dependencies>
 
 </project>
