@@ -119,9 +119,43 @@
     .controller('RegisterServiceCtrl', ['$scope', '$state', function($scope, $state) {
 
         /**
-         * Returns a function that wraps a function returning promises
+         * Wraps a factory that delays between requests
          */
-        var lastRequest = function(promiseFactory, cancelFn) {
+        var postpone = function(promiseFactory, ms, abortFn) {
+            return function() {
+                var args = arguments;
+                var deferred = jQuery.Deferred();
+                var running = null;
+                
+                var timeout = setTimeout(function() {
+                    running = promiseFactory.apply(this, args);                
+                    running.then(function() {
+                        deferred.resolve.apply(this, arguments);
+                        deferred = null;
+                    }).fail(function() {
+                        deferred.reject.apply(this, arguments);
+                        deferred = null;
+                    });
+                }, ms);
+                
+                var result = deferred.promise();
+                result.abort = function() {
+                    if(running == null) {
+                        clearTimeout(timeout);
+                    } else if(abortFn != null) {
+                        abortFn(running);
+                    }
+                };
+                
+                return result;
+            };
+        };
+        
+        /**
+         * Returns a function returing a promise that wraps a function returning promises.
+         * Only the resolution of the most recently created promise will be resolved.
+         */
+        var lastRequest = function(promiseFactory, abortFn) {
             var deferred = null;
             var prior = null;
             var counter = 0;
@@ -137,21 +171,21 @@
                 //console.log('now ' + now + ' for ', args);
                 var next = promiseFactory.apply(this, arguments);                
                 
-                if(cancelFn != null && prior != null) {
-                    cancelFn(prior);
+                if(abortFn != null && prior != null) {
+                    abortFn(prior);
                 }
                 prior = next;
                 
-                next.then(function(data) {
+                next.then(function() {
                     if(now == counter) {
                         //console.log('resolved' + now + ' for ', args);
-                        deferred.resolve.apply(this, data);
+                        deferred.resolve.apply(this, arguments);
                         deferred = null;
                     }
                 }).fail(function() {
                     if(now == counter) {
                         //console.log('rejected' + now + ' for ', args);
-                        deferred.reject();
+                        deferred.reject.apply(this, arguments);
                         deferred = null;
                     }
                 });
@@ -171,7 +205,8 @@
             return result;
         };
 
-        var lastCheck = lastRequest(testSparql);
+        var abortFn = function(p) { p.abort(); };
+        var lastCheck = lastRequest(postpone(testSparql, 300), abortFn);
         
         $scope.$watch('serviceUrl', function(serviceUrl) {
             //var p = testSparql(serviceUrl);
