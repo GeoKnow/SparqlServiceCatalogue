@@ -24,7 +24,7 @@ public class ServiceAnalyzerProcessorAkkaImpl
         
         ActorRef sdGeneratorProcess = actorSystem.actorOf(Props.create(ActorSdProcess.class)); //, "sd-process");
         
-        Timeout timeout = new Timeout(Duration.create(600, "seconds"));
+        Timeout timeout = new Timeout(Duration.create(3600, "seconds"));
         Future<Object> future = Patterns.ask(sdGeneratorProcess, serviceUrl, timeout);
         
         String result;

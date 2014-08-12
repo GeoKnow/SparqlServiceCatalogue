@@ -10,6 +10,11 @@
     
     var client = Jassa.client;
 
+    var applyScope = function($scope) {
+        if(!$scope.$$phase) {
+            $scope.$apply();
+        }
+    };
     
     var storeApiUrl = 'api/services';
 
@@ -109,112 +114,78 @@
 
     .controller('BrowseCtrl', ['$scope', '$state', function($scope, $state) {
 
-        /*
-        $scope.dataset = {
-                desc: createEmptyDatasetSpec()
-            };
-        
-        
-        $scope.previewDataset = function(uri) {
-            fetchDatasetDesc(uri).done(function(desc) {
-                $scope.dataset.desc = desc;
-                $state.go('home.list');
-            }).then(function() {
-                applyScope($scope);
-            });
-        };
-
-        //sparqlService = new jassa.service.SparqlServiceCache(sparqlServiceCore);
-
-        var prefixes = {
-            'o': 'http://dcat.cc/ontology/',
-            'r': 'http://dcat.cc/resource/',
-            'rdf': 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-            'rdfs': 'http://www.w3.org/2000/01/rdf-schema#',
-            'owl': 'http://www.w3.org/2002/07/owl#',
-            'dcat': 'http://www.w3.org/ns/dcat#'
-        };
-
-
-        
-        var store = new sponate.StoreFacade(sparqlService, prefixes);
-        
-        store.addMap(labelMap, 'labels');                
-        
-        $scope.search = {text: ''};
-        
-        $scope.$watch('search.text', function(val) {
-            $scope.refreshResults(val); 
-        });
-  
-        $scope.dataset = {
-            desc: createEmptyDatasetSpec()
-        };
-
-        $scope.editMode = false;
-        
-        
-        $scope.requestId = 1;
-        
-        $scope.refreshResults = function(re) {
-            var requestId = ++$scope.requestId;
-
-            if(!re) {
-                re = '';
-            }
-            
-            /*
-            if(!re || re === '') {
-                $scope.items = [];
-                return;
-            }
-            * /
-            
-            var maxResults = 10;
-            
-            //var re = 'DB';
-            //var concept =
-            var criteria = {$or: [{id: {$regex: re}}, {hiddenLabels: {$elemMatch: {id: {$regex: re}}}}]};
-            
-            //var datasetConcept = sparql.ConceptUtils.createFromString('?s a <http://www.w3.org/ns/dcat#Dataset>', 's'); //new facete.Concept(sparql.ElementUtils.parse('?s a <http://www.w3.org/ns/dcat#Dataset>'), 's');
-            
-            
-            
-            
-            
-            
-            var baseFlow =  store.labels.find(criteria).concept(datasetConcept);
-            var countPromise = baseFlow.count();        
-            
-            // An empty search string yields no results, however the count is fetched
-            var dataPromise;
-            if(re === '') {
-                dataPromise = jQuery.Deferred();
-                dataPromise.resolve([]);
-            } else {
-                dataPromise = baseFlow.limit(maxResults).asList(true);
-            }
-            
-            $.when.apply(window, [countPromise, dataPromise]).done(function(count, data) {
-                if(requestId != $scope.requestId) {
-                    return;
-                }
-                
-                $scope.items = data;
-                $scope.totalItemCount = count;
-                console.log(data);
-                applyScope($scope);                        
-            });
-            //promise.done(function(data) {
-            //});
-            
-        };
-        
-        $scope.refreshResults();     
-        */   
     }])
     
     .controller('RegisterServiceCtrl', ['$scope', '$state', function($scope, $state) {
+
+        /**
+         * Returns a function that wraps a function returning promises
+         */
+        var lastRequest = function(promiseFactory, cancelFn) {
+            var deferred = null;
+            var prior = null;
+            var counter = 0;
+            
+            return function() {
+                if(deferred == null) {
+                    deferred = jQuery.Deferred();
+                }
+
+                //var args = arguments;
+
+                var now = ++counter;
+                //console.log('now ' + now + ' for ', args);
+                var next = promiseFactory.apply(this, arguments);                
+                
+                if(cancelFn != null && prior != null) {
+                    cancelFn(prior);
+                }
+                prior = next;
+                
+                next.then(function(data) {
+                    if(now == counter) {
+                        //console.log('resolved' + now + ' for ', args);
+                        deferred.resolve.apply(this, data);
+                        deferred = null;
+                    }
+                }).fail(function() {
+                    if(now == counter) {
+                        //console.log('rejected' + now + ' for ', args);
+                        deferred.reject();
+                        deferred = null;
+                    }
+                });
+                
+                
+                return deferred.promise();
+            };
+            
+        };
+        
+        
+        
+        var testSparql = function(serviceUrl) {
+            var sparqlService = new service.SparqlServiceHttp(serviceUrl);
+            var qe = sparqlService.createQueryExecution('Select * { <http://example.org/> <http://example.org/> ?o } Limit 1');
+            var result = qe.execSelect();
+            return result;
+        };
+
+        var lastCheck = lastRequest(testSparql);
+        
+        $scope.$watch('serviceUrl', function(serviceUrl) {
+            //var p = testSparql(serviceUrl);
+            var p = lastCheck(serviceUrl);
+
+            p.then(function(rs) {
+                $scope.isSparqlService = true;
+            }).fail(function() {
+                $scope.isSparqlService = false;
+            }).always(function() {
+                applyScope($scope);                
+            });
+        });
+        
         $scope.submitForm = function(isValid) {
 
             var serviceUrl = $scope.serviceUrl;

@@ -1,11 +1,13 @@
 <form name="serviceForm" ng-submit="submitForm(serviceForm.$valid)" novalidate>
 
-	<div class="form-group"  ng-class="{ 'has-error' : serviceForm.serviceUrl.$invalid && !serviceForm.serviceUrl.$pristine }">
+	<div class="form-group"  ng-class="{ 'has-success': isSparqlService, 'has-error' : (serviceForm.serviceUrl.$invalid || !isSparqlService) && !serviceForm.serviceUrl.$pristine }">
 	    <label>Service URL</label>
 	    <input ng-model="serviceUrl" type="url" name="serviceUrl" class="form-control" placeholder="E.g. http://dbpedia.org/sparql" required>
 	    <p ng-show="serviceForm.serviceUrl.$invalid && !serviceForm.serviceUrl.$pristine" class="help-block">Input is not a valid HTTP URL</p>
+        <p ng-show="!serviceForm.serviceUrl.$pristine && !serviceForm.serviceUrl.$invalid && !isSparqlService" class="help-block">Your input does not point to a SPARQL service or the SPARQL service could not be reached. It may be down or your browser is not allowed to access it.</p>
+        <p ng-show="isSparqlService" class="help-block">Successfully validated URL as an accessible SPARQL service</p>
 	</div>
 	
-	<button type="submit" class="btn btn-primary btn-lg" ng-class="{ 'disabled' : !serviceForm.$valid }">Register</button>
+	<button type="submit" class="btn btn-primary btn-lg" ng-class="{ 'disabled' : !isSparqlService }">Register</button>
 
 </form>

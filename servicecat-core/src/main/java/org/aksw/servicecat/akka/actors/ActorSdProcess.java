@@ -34,7 +34,7 @@ public class ActorSdProcess extends UntypedActor {
         //tripleStore.forward(, context);
         //System.out.println("triple store again: " + tripleStore);
         
-        Timeout timeout = new Timeout(Duration.create(600, "seconds"));
+        Timeout timeout = new Timeout(Duration.create(3600, "seconds"));
         Future<Object> future = Patterns.ask(sdGenerator, serviceUrl, timeout);
         String rdf = (String)Await.result(future, timeout.duration());
         
