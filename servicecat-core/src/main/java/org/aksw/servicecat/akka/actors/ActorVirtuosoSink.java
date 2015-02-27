@@ -1,6 +1,7 @@
 package org.aksw.servicecat.akka.actors;
 
 import java.io.ByteArrayInputStream;
+import java.sql.Connection;
 
 import org.aksw.servicecat.akka.messages.WriteMessage;
 
@@ -18,28 +19,31 @@ public class ActorVirtuosoSink extends UntypedActor {
 
     public void onReceive(Object message) throws Exception {
         log.info("Got a message on " + this.getClass().getCanonicalName() + ": " + message);
-        
+
         if(message instanceof WriteMessage) {
             WriteMessage msg = (WriteMessage)message;
 
             String graphName = msg.getGraphName();
 
-            log.info("start writing into " + graphName);
-            
+            log.info("Starting to write into " + graphName);
+
             Model model = ModelFactory.createDefaultModel();
             model.read(new ByteArrayInputStream(msg.getRdfPayload().getBytes()), "http://example.org/", "N-TRIPLES");
 
             VirtGraph virtGraph = new VirtGraph(graphName, "jdbc:virtuoso://localhost:1152", "dba", "dba");
-            
+
+            //Connection conn = virtGraph.getConnection();
+            //conn.createStatement().
+
             virtGraph.clear();
             GraphUtil.addInto(virtGraph, model.getGraph());
-            
+
             virtGraph.close();
-            log.info("done writing");
+            log.info("Done writing into " + graphName);
         } else {
             log.error("Unsupported message at " + this.getClass().getCanonicalName() + ": " + message);
         }
 
-        getSender().tell("success", getSelf());        
+        getSender().tell("success", getSelf());
     }
 }

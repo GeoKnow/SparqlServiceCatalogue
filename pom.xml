@@ -36,8 +36,7 @@
 
 	<properties>
 		<!-- Dependency Versions -->
-		<!-- facete2 only works with jena-sparql-api version 2.10.0-27 and onwards -->
-		<jena-sparql-api.version>2.11.2-56</jena-sparql-api.version>
+		<jena-sparql-api.version>2.11.2-57-SNAPSHOT</jena-sparql-api.version>
 		<jassa.version>0.0.4</jassa.version>
 		<sparqlify.version>0.6.12</sparqlify.version>
 
@@ -146,6 +145,12 @@
 				<artifactId>servicecat-core</artifactId>
 				<version>${project.version}</version>
 			</dependency>
+                <dependency>
+                        <groupId>org.aksw.servicecat</groupId>
+                        <artifactId>servicecat-webapp</artifactId>
+			<version>${project.version}</version>
+                        <type>war</type>
+                </dependency>
 
             <dependency>
                 <groupId>org.aksw.jena-sparql-api</groupId>

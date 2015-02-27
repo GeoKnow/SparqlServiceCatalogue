@@ -1,7 +1,7 @@
 package org.aksw.servicecat.core;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.aksw.jena_sparql_api.concepts.Concept;
 import org.aksw.jena_sparql_api.concepts.ConceptUtils;
@@ -9,10 +9,20 @@ import org.aksw.jena_sparql_api.core.QueryExecutionFactory;
 import org.aksw.jena_sparql_api.http.QueryExecutionFactoryHttp;
 import org.aksw.jena_sparql_api.lookup.ListService;
 import org.aksw.jena_sparql_api.lookup.ListServiceConcept;
+import org.aksw.jena_sparql_api.lookup.LookupService;
+import org.aksw.jena_sparql_api.lookup.LookupServicePartition;
+import org.aksw.jena_sparql_api.lookup.LookupServiceUtils;
+import org.aksw.jena_sparql_api.mapper.Agg;
+import org.aksw.jena_sparql_api.mapper.AggList;
+import org.aksw.jena_sparql_api.mapper.AggMap;
+import org.aksw.jena_sparql_api.mapper.AggTransforms;
+import org.aksw.jena_sparql_api.mapper.AggUtils;
+import org.aksw.jena_sparql_api.mapper.MappedConcept;
 import org.aksw.jena_sparql_api.pagination.core.QueryExecutionFactoryPaginated;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Multimap;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.hp.hpl.jena.graph.Node;
@@ -26,30 +36,23 @@ public class ServiceAnalyzerUtils {
     public static Concept listAllGraphsWithInstances = Concept.create("Graph ?g { ?s a ?o }", "g");
 
     
-    public static List<String> getAvailableGraphs(String serviceUrl) {
-        QueryExecutionFactory qef = new QueryExecutionFactoryHttp(serviceUrl);
-        qef = new QueryExecutionFactoryPaginated(qef);
-        ListService<Concept, Node> ls = new ListServiceConcept(qef);
+    public static List<Node> getAvailableGraphs(QueryExecutionFactory sparqlService, String serviceUrl) {
+        ListService<Concept, Node> ls = new ListServiceConcept(sparqlService);
         
-        List<Node> graphNodes;
+        List<Node> result;
         
         try {
-            graphNodes = ls.fetchData(ConceptUtils.listAllGraphs, null, null);
+            result = ls.fetchData(ConceptUtils.listAllGraphs, null, null);
     
             // Retry with the fallback solution if no graphs were returned
-            if(graphNodes.isEmpty()) {
-                graphNodes = ls.fetchData(listAllGraphsFallback, null, null);
+            if(result.isEmpty()) {
+                result = ls.fetchData(listAllGraphsFallback, null, null);
             }
         } catch(Exception e) {
             logger.warn("Attempt to fetch all graphs failed. Trying final fallback.", e);
-            graphNodes = ls.fetchData(listAllGraphsWithInstances, null, null);            
+            result = ls.fetchData(listAllGraphsWithInstances, null, null);            
         }
         
-        //FunctionN
-        List<String> result = new ArrayList<String>();
-        for(Node node : graphNodes) {
-            result.add(node.getURI());
-        }
         
         return result;
     }
@@ -61,8 +64,38 @@ public class ServiceAnalyzerUtils {
     
     public static void createServiceDescription(String serviceUrl, JsonObject result) {
         
-        List<String> availableGraphs = getAvailableGraphs(serviceUrl);
+        QueryExecutionFactory sparqlService = new QueryExecutionFactoryHttp(serviceUrl);
+        sparqlService = new QueryExecutionFactoryPaginated(sparqlService);
+        
+        List<Node> availableGraphs = getAvailableGraphs(sparqlService, serviceUrl);
 
+        // Fetch labels
+        Concept concept = Concept.create("?s ?p ?l . Filter(?p = <http://www.w3.org/2000/01/rdf-schema#label>)", "s");
+        Agg<List<Node>> agg = AggList.create(AggUtils.literalNode("?l"));
+        MappedConcept<List<Node>> mappedConcept = MappedConcept.create(concept, agg);
+
+
+        LookupService<Node, List<Node>> ls = LookupServiceUtils.createLookupService(sparqlService, mappedConcept);
+        ls = LookupServicePartition.create(ls, 30);
+
+        Map<Node, List<Node>> labelMap = ls.lookup(availableGraphs);
+
+//        {
+//        Agg<Multimap<Node, Node>> foo = AggTransforms.multimap(
+//            AggMap.create(AggUtils.mapper("?s"),
+//                    AggList.create(AggUtils.literal("?l"))));
+//        }
+
+
+        //LookupService<Node, ResultSetPart> ls = new LookupServiceSparqlQuery(sparqlService, query, Var.alloc("s"));
+        
+        /*
+        List<String> availableGraphs = new ArrayList<String>();
+        for(Node node : graphNodes) {
+            availableGraphs.add(node.getURI());
+        }*/
+
+        
         result.addProperty("endpoint", serviceUrl);
 
         // TODO Fetch the labels
@@ -71,13 +104,29 @@ public class ServiceAnalyzerUtils {
         JsonArray ags = new JsonArray();
         result.add("availableGraphs", ags);
         
-        for(String graphName : availableGraphs) {
+        for(Node graphNode : availableGraphs) {
             JsonObject namedGraph = new JsonObject();
             ags.add(namedGraph);
             JsonObject graph = new JsonObject();
             namedGraph.add("namedGraph", graph);
             
-            graph.addProperty("name", graphName);
+            graph.addProperty("name", graphNode.getURI());
+            
+            JsonObject labels = new JsonObject();
+
+            List<Node> graphLabels = labelMap.get(graphNode);
+            if(graphLabels != null) {
+                for(Node graphLabel : graphLabels) {
+                    labels.addProperty(graphLabel.getLiteralLanguage(), graphLabel.getLiteralLexicalForm());
+                
+                    graph.add("labels", labels);
+                }
+            }
+
+            /*
+      http://brown.nlp2rdf.org/dataid.ttl      for(NodeValue label : ) {
+                
+            }*/
         }
     }
     
@@ -91,4 +140,5 @@ public class ServiceAnalyzerUtils {
 
         return result;
     }
+
 }

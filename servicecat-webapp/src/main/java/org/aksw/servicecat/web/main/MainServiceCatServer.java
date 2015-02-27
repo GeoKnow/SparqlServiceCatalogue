@@ -22,18 +22,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
+import com.hp.hpl.jena.datatypes.TypeMapper;
+
 
 /**
- * 
- * 
+ *
+ *
  * http://stackoverflow.com/questions/10738816/deploying-a-servlet-
  * programmatically-with-jetty
  * http://stackoverflow.com/questions/3718221/add-resources
  * -to-jetty-programmatically
- * 
+ *
  * @author raven
- * 
- * 
+ *
+ *
  */
 public class MainServiceCatServer {
 

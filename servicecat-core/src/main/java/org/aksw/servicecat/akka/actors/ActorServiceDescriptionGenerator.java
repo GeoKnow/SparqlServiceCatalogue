@@ -14,7 +14,7 @@ public class ActorServiceDescriptionGenerator extends UntypedActor {
     LoggingAdapter log = Logging.getLogger(getContext().system(), this);
 
     public void onReceive(Object message) throws Exception {
-        log.info("Got a message on " + this.getClass().getCanonicalName() + ": " + message);
+        //log.info("Got a message on " + this.getClass().getCanonicalName() + ": " + message);
 
         String serviceUrl = "" + message;
         

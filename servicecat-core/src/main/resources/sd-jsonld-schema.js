@@ -15,6 +15,10 @@
     "labels": {
       "@id": "rdfs:label",
       "@container": "@language"
+    },
+    "feature": {
+        "@id": "sd:feature",
+        "@type": "@id"
     }
   }
 }

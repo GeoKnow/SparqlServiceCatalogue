@@ -86,7 +86,7 @@
         .state('home', {
             url: '/home',
             templateUrl: 'partials/home.html',
-            controller: 'BrowseCtrl'
+            controller: 'SearchCtrl'
         })
         .state('home.list', {
             url: "/list",
@@ -112,6 +112,34 @@
         
     }])
 
+    .controller('SearchCtrl', ['$scope', function($scope) {
+
+        // Create the SPARQL concept that identifies datasets    
+        var concept = facete.ConceptUtils.createTypeConcept('http://www.w3.org/ns/sparql-service-description#Service');
+        
+        // Create a facetTreeConfig with the dataset config as its base
+        var typeAheadFtc = new facete.FacetTreeConfig();
+        typeAheadFtc.getFacetConfig().setBaseConcept(concept);
+        
+        // Init the sparql service (and wrap it with a cache and pagination)
+        var sparqlService = new service.SparqlServiceHttp('http://localhost/data/servicecat/sparql', []);
+        sparqlService = new service.SparqlServiceCache(sparqlService);
+        sparqlService = new service.SparqlServicePaginate(sparqlService, 1000);
+
+        // Set up the facet typeahead config (ftac)
+        $scope.ftac = {
+            sparqlService: sparqlService,
+            facetTreeConfig: typeAheadFtc
+        };
+
+        // Create a variable to hold the dataset description
+        $scope.service = {
+            endpoint: '',
+            graphName: ''
+        };
+
+    }])
+    
     .controller('BrowseCtrl', ['$scope', '$state', function($scope, $state) {
 
     }])
@@ -131,10 +159,8 @@
                     running = promiseFactory.apply(this, args);                
                     running.then(function() {
                         deferred.resolve.apply(this, arguments);
-                        deferred = null;
                     }).fail(function() {
                         deferred.reject.apply(this, arguments);
-                        deferred = null;
                     });
                 }, ms);
                 

@@ -16,7 +16,23 @@
                     '@id': function() { return this.name; }
                 }
             }
-        } 
+        }
+//        feature: {
+//            '@id': function() { return base + 'feature-' + this.$serviceUrlEnc + this. },            
+//        }
     };
 })
 
+/*
+class GraphCollection {
+    List<NamedGraph> namedGraph;
+}
+
+class Service
+   GraphCollection availableGraphs;
+}
+
+class NamedGraph {
+    String name;
+}
+*/
